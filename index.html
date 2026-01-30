@@ -1,0 +1,1115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CEG | Constellation Energy — Interactive Financial Model</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<style>
+/* ── Reset & Base ────────────────────────────────────── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0b1120;--surface:#111827;--card:#1e293b;--border:#334155;
+  --text:#e2e8f0;--muted:#94a3b8;--accent:#3b82f6;--accent2:#6366f1;
+  --green:#22c55e;--red:#ef4444;--yellow:#eab308;--orange:#f97316;
+  --input-bg:#0f172a;--hover:#1e3a5f;
+  --font:'Segoe UI',system-ui,-apple-system,sans-serif;
+  --mono:'SF Mono','Cascadia Code','Fira Code',monospace;
+}
+html{font-size:13px;scroll-behavior:smooth}
+body{font-family:var(--font);background:var(--bg);color:var(--text);line-height:1.5;min-height:100vh}
+a{color:var(--accent);text-decoration:none}
+
+/* ── Layout ──────────────────────────────────────────── */
+.container{max-width:1440px;margin:0 auto;padding:0 24px}
+header{background:linear-gradient(135deg,#0f172a 0%,#1e1b4b 100%);border-bottom:1px solid var(--border);padding:18px 0;position:sticky;top:0;z-index:100;backdrop-filter:blur(12px)}
+header .container{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
+.logo{display:flex;align-items:center;gap:12px}
+.logo-icon{width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;color:#fff}
+.logo h1{font-size:1.3rem;font-weight:700;letter-spacing:-.5px}
+.logo span{color:var(--muted);font-size:.85rem;font-weight:400}
+.header-meta{display:flex;gap:16px;align-items:center;font-size:.8rem;color:var(--muted)}
+.header-meta .badge{background:var(--accent);color:#fff;padding:3px 10px;border-radius:20px;font-weight:600;font-size:.75rem}
+
+/* ── Tabs ────────────────────────────────────────────── */
+.tabs{display:flex;gap:2px;background:var(--surface);border-bottom:1px solid var(--border);padding:0 24px;overflow-x:auto;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tab{padding:12px 20px;cursor:pointer;font-size:.82rem;font-weight:500;color:var(--muted);border-bottom:2px solid transparent;white-space:nowrap;transition:all .2s}
+.tab:hover{color:var(--text);background:rgba(59,130,246,.06)}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent);background:rgba(59,130,246,.08)}
+
+/* ── Panels ──────────────────────────────────────────── */
+.panel{display:none;padding:24px 0}
+.panel.active{display:block}
+.panel-title{font-size:1.1rem;font-weight:700;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.panel-title::before{content:'';width:4px;height:20px;background:linear-gradient(var(--accent),var(--accent2));border-radius:2px}
+
+/* ── Cards & Grid ────────────────────────────────────── */
+.grid{display:grid;gap:16px}
+.g2{grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}
+.g3{grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+.g4{grid-template-columns:repeat(auto-fit,minmax(180px,1fr))}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;transition:border-color .2s}
+.card:hover{border-color:var(--accent)}
+.card h3{font-size:.75rem;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:6px}
+.card .value{font-size:1.6rem;font-weight:700;font-family:var(--mono)}
+.card .change{font-size:.78rem;margin-top:4px}
+.card .change.up{color:var(--green)}
+.card .change.down{color:var(--red)}
+
+/* ── Tables ──────────────────────────────────────────── */
+.table-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:12px;background:var(--card);margin-bottom:16px}
+table{width:100%;border-collapse:collapse;font-size:.82rem}
+th,td{padding:8px 14px;text-align:right;border-bottom:1px solid rgba(51,65,85,.5);white-space:nowrap}
+th{background:rgba(15,23,42,.6);color:var(--muted);font-weight:600;text-transform:uppercase;font-size:.7rem;letter-spacing:.5px;position:sticky;top:0}
+td:first-child,th:first-child{text-align:left;position:sticky;left:0;background:var(--card);z-index:1;font-weight:500}
+th:first-child{background:rgba(15,23,42,.9);z-index:2}
+tr:hover td{background:rgba(59,130,246,.04)}
+tr.section-header td{font-weight:700;color:var(--accent);border-top:2px solid var(--border);padding-top:12px;font-size:.78rem}
+tr.subtotal td{font-weight:700;border-top:1px solid var(--border)}
+tr.total td{font-weight:800;border-top:2px solid var(--accent);font-size:.88rem;color:var(--text)}
+tr.spacer td{border:none;padding:4px}
+td.neg{color:var(--red)}
+.proj{color:var(--accent);font-style:italic}
+
+/* ── Inputs ──────────────────────────────────────────── */
+.assumptions-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px;margin-bottom:20px}
+.input-group{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:6px}
+.input-group label{font-size:.72rem;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);font-weight:600}
+.input-group input,.input-group select{background:var(--input-bg);border:1px solid var(--border);border-radius:6px;padding:8px 10px;color:var(--text);font-family:var(--mono);font-size:.85rem;width:100%;transition:border-color .2s}
+.input-group input:focus,.input-group select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(59,130,246,.15)}
+.input-group .unit{font-size:.7rem;color:var(--muted)}
+
+/* ── Scenario Buttons ────────────────────────────────── */
+.scenario-bar{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+.scenario-btn{padding:8px 18px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer;font-size:.78rem;font-weight:600;transition:all .2s}
+.scenario-btn:hover{border-color:var(--accent);color:var(--text)}
+.scenario-btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.scenario-btn.bear{border-color:var(--red)}
+.scenario-btn.bear.active{background:var(--red)}
+.scenario-btn.bull{border-color:var(--green)}
+.scenario-btn.bull.active{background:var(--green)}
+
+/* ── Charts ──────────────────────────────────────────── */
+.chart-container{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:16px;position:relative}
+.chart-container h3{font-size:.85rem;font-weight:600;margin-bottom:12px;color:var(--muted)}
+.chart-container canvas{max-height:320px}
+
+/* ── Sensitivity ─────────────────────────────────────── */
+.sens-table{font-size:.78rem}
+.sens-table th{font-size:.68rem;background:rgba(99,102,241,.15);color:var(--accent2)}
+.sens-table td{font-family:var(--mono);font-size:.78rem;padding:6px 10px;text-align:center}
+.sens-table .highlight{background:rgba(59,130,246,.15);font-weight:700}
+.sens-table .above{color:var(--green)}
+.sens-table .below{color:var(--red)}
+
+/* ── Footer ──────────────────────────────────────────── */
+footer{border-top:1px solid var(--border);padding:20px 0;margin-top:40px;text-align:center;font-size:.72rem;color:var(--muted)}
+
+/* ── Utility ─────────────────────────────────────────── */
+.mb{margin-bottom:16px}
+.mt{margin-top:16px}
+.flex{display:flex;gap:16px;flex-wrap:wrap;align-items:start}
+.flex-1{flex:1;min-width:300px}
+.text-green{color:var(--green)}.text-red{color:var(--red)}.text-accent{color:var(--accent)}
+.text-muted{color:var(--muted)}.text-sm{font-size:.78rem}
+.fw700{font-weight:700}
+</style>
+</head>
+<body>
+
+<!-- ═══ HEADER ═══════════════════════════════════════ -->
+<header>
+  <div class="container">
+    <div class="logo">
+      <div class="logo-icon">CEG</div>
+      <div>
+        <h1>Constellation Energy Corporation</h1>
+        <span>NASDAQ: CEG &nbsp;|&nbsp; Interactive Financial Model</span>
+      </div>
+    </div>
+    <div class="header-meta">
+      <span>Sector: Utilities — Nuclear & Clean Energy</span>
+      <span class="badge">FY 2022–2029E</span>
+    </div>
+  </div>
+</header>
+
+<!-- ═══ TABS ═════════════════════════════════════════ -->
+<div class="tabs" id="tabs">
+  <div class="tab active" data-tab="overview">Overview</div>
+  <div class="tab" data-tab="assumptions">Assumptions</div>
+  <div class="tab" data-tab="income">Income Statement</div>
+  <div class="tab" data-tab="balance">Balance Sheet</div>
+  <div class="tab" data-tab="cashflow">Cash Flow</div>
+  <div class="tab" data-tab="dcf">DCF Valuation</div>
+  <div class="tab" data-tab="sensitivity">Sensitivity</div>
+  <div class="tab" data-tab="charts">Charts</div>
+</div>
+
+<!-- ═══ CONTENT ══════════════════════════════════════ -->
+<div class="container" id="content">
+
+<!-- ── OVERVIEW ──────────────────────────────────────── -->
+<div class="panel active" id="panel-overview">
+  <div class="panel-title">Company Overview</div>
+  <p class="text-sm text-muted mb">Constellation Energy (CEG) is the largest producer of carbon-free energy in the United States, operating a fleet of nuclear, wind, solar, and hydro assets. The company is the #1 US nuclear operator with ~33 GW of capacity across 21 nuclear plants.</p>
+  <div class="grid g4 mb" id="kpi-cards"></div>
+  <div class="flex">
+    <div class="flex-1">
+      <div class="chart-container"><h3>Revenue &amp; EBITDA ($ Billions)</h3><canvas id="chartOverviewRevenue"></canvas></div>
+    </div>
+    <div class="flex-1">
+      <div class="chart-container"><h3>Net Income &amp; EPS</h3><canvas id="chartOverviewNI"></canvas></div>
+    </div>
+  </div>
+  <div class="flex">
+    <div class="flex-1">
+      <div class="chart-container"><h3>Margin Profile (%)</h3><canvas id="chartOverviewMargins"></canvas></div>
+    </div>
+    <div class="flex-1">
+      <div class="chart-container"><h3>Free Cash Flow ($ Billions)</h3><canvas id="chartOverviewFCF"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── ASSUMPTIONS ───────────────────────────────────── -->
+<div class="panel" id="panel-assumptions">
+  <div class="panel-title">Model Assumptions</div>
+  <p class="text-sm text-muted mb">Adjust the assumptions below to update all projections, valuation, and sensitivity outputs in real-time. Projections cover FY 2025E–2029E.</p>
+  <div class="scenario-bar">
+    <button class="scenario-btn bear" onclick="applyScenario('bear')">Bear Case</button>
+    <button class="scenario-btn active" onclick="applyScenario('base')">Base Case</button>
+    <button class="scenario-btn bull" onclick="applyScenario('bull')">Bull Case</button>
+  </div>
+  <h3 class="text-sm fw700 mt mb" style="color:var(--accent)">Revenue &amp; Growth</h3>
+  <div class="assumptions-grid" id="assumptionsRevenue"></div>
+  <h3 class="text-sm fw700 mt mb" style="color:var(--accent)">Margins &amp; Profitability</h3>
+  <div class="assumptions-grid" id="assumptionsMargins"></div>
+  <h3 class="text-sm fw700 mt mb" style="color:var(--accent)">Capital Structure &amp; Valuation</h3>
+  <div class="assumptions-grid" id="assumptionsCapital"></div>
+</div>
+
+<!-- ── INCOME STATEMENT ─────────────────────────────── -->
+<div class="panel" id="panel-income">
+  <div class="panel-title">Income Statement</div>
+  <p class="text-sm text-muted mb">All figures in $ millions. Projected years (2025E–2029E) are model estimates based on current assumptions.</p>
+  <div class="table-wrap"><table id="tableIncome"></table></div>
+</div>
+
+<!-- ── BALANCE SHEET ─────────────────────────────────── -->
+<div class="panel" id="panel-balance">
+  <div class="panel-title">Balance Sheet</div>
+  <p class="text-sm text-muted mb">All figures in $ millions.</p>
+  <div class="table-wrap"><table id="tableBalance"></table></div>
+</div>
+
+<!-- ── CASH FLOW ─────────────────────────────────────── -->
+<div class="panel" id="panel-cashflow">
+  <div class="panel-title">Cash Flow Statement</div>
+  <p class="text-sm text-muted mb">All figures in $ millions.</p>
+  <div class="table-wrap"><table id="tableCashflow"></table></div>
+</div>
+
+<!-- ── DCF VALUATION ─────────────────────────────────── -->
+<div class="panel" id="panel-dcf">
+  <div class="panel-title">DCF Valuation</div>
+  <p class="text-sm text-muted mb">Discounted Cash Flow analysis using unlevered free cash flow. Adjust assumptions on the Assumptions tab.</p>
+  <div class="grid g3 mb" id="dcf-cards"></div>
+  <div class="table-wrap"><table id="tableDCF"></table></div>
+  <div class="chart-container mt"><h3>DCF Bridge — Enterprise to Equity Value</h3><canvas id="chartDCFBridge"></canvas></div>
+</div>
+
+<!-- ── SENSITIVITY ───────────────────────────────────── -->
+<div class="panel" id="panel-sensitivity">
+  <div class="panel-title">Sensitivity Analysis</div>
+  <p class="text-sm text-muted mb">Implied share price under varying WACC and terminal growth rate assumptions.</p>
+  <div class="table-wrap"><table id="tableSens" class="sens-table"></table></div>
+  <div class="mt">
+    <div class="panel-title">EBITDA Multiple Sensitivity</div>
+    <p class="text-sm text-muted mb">Implied share price under varying EV/EBITDA exit multiples and EBITDA margins.</p>
+    <div class="table-wrap"><table id="tableSensMultiple" class="sens-table"></table></div>
+  </div>
+</div>
+
+<!-- ── CHARTS ────────────────────────────────────────── -->
+<div class="panel" id="panel-charts">
+  <div class="panel-title">Financial Charts</div>
+  <div class="flex">
+    <div class="flex-1"><div class="chart-container"><h3>Revenue Composition Forecast</h3><canvas id="chartRevComp"></canvas></div></div>
+    <div class="flex-1"><div class="chart-container"><h3>EBITDA &amp; EBITDA Margin</h3><canvas id="chartEBITDA"></canvas></div></div>
+  </div>
+  <div class="flex">
+    <div class="flex-1"><div class="chart-container"><h3>CapEx vs. Depreciation</h3><canvas id="chartCapex"></canvas></div></div>
+    <div class="flex-1"><div class="chart-container"><h3>Debt &amp; Net Debt / EBITDA</h3><canvas id="chartDebt"></canvas></div></div>
+  </div>
+  <div class="flex">
+    <div class="flex-1"><div class="chart-container"><h3>Return Metrics (ROE / ROIC)</h3><canvas id="chartReturns"></canvas></div></div>
+    <div class="flex-1"><div class="chart-container"><h3>EPS &amp; Dividends Per Share</h3><canvas id="chartEPSDPS"></canvas></div></div>
+  </div>
+</div>
+
+</div><!-- /container -->
+
+<footer>
+  <div class="container">
+    Constellation Energy (CEG) Financial Model &nbsp;|&nbsp; Data sources: SEC filings, company reports, analyst estimates &nbsp;|&nbsp; This model is for educational & analytical purposes only — not investment advice.
+  </div>
+</footer>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- ═══ JAVASCRIPT ENGINE ════════════════════════════ -->
+<!-- ═══════════════════════════════════════════════════ -->
+<script>
+/* =====================================================
+   CONSTELLATION ENERGY (CEG) — INTERACTIVE FINANCIAL MODEL
+   ===================================================== */
+
+// ── Historical Data (FY 2022 – 2024, $ millions) ────
+const H = {
+  years: [2022, 2023, 2024],
+  revenue:       [24440, 24918, 23568],
+  cogs:          [20200, 19500, 15500],
+  grossProfit:   [4240,  5418,  8068],
+  sga:           [1050,  1020,   980],
+  otherOpex:     [269,    274,    236],
+  da:            [1980,  2100,  2200],
+  ebitda:        [2921,  4124,  7052],
+  ebit:          [941,   2024,  4852],
+  interestExp:   [450,    500,   520],
+  otherIncome:   [0,      0,     0],
+  pretaxIncome:  [491,   1524,  4332],
+  incomeTax:     [651,   -99,    583],
+  netIncome:     [-160,  1623,  3749],
+  sharesOut:     [325,    317,   313],
+  eps:           [-0.49,  5.12, 11.98],
+  dividends:     [0,      0.49,  1.41],
+
+  // Balance Sheet
+  cash:           [742,   454,  3129],
+  receivables:    [3200, 3400,  3100],
+  inventory:      [1200, 1300,  1350],
+  otherCA:        [4358, 5046,  3221],
+  totalCA:        [9500,10200, 10800],
+  ppe:            [22000,23500, 24800],
+  goodwill:       [6200, 6200,  6200],
+  otherNCA:       [8500,10866, 11126],
+  totalAssets:    [46200,50766, 52926],
+  payables:       [3100, 3400,  3000],
+  stDebt:         [800,   900,   870],
+  otherCL:        [3200, 3500,  3000],
+  totalCL:        [7100, 7800,  6870],
+  ltDebt:         [7000, 7200,  7542],
+  otherLTL:       [21800,23700, 24975],
+  totalLiab:      [35900,38700, 39387],
+  totalEquity:    [10300,12066, 13539],
+
+  // Cash Flow
+  netIncCF:       [-160,  1623, 3749],
+  daCF:           [1980,  2100, 2200],
+  wcChange:       [-220,  -323,  -149],
+  otherOpCF:      [1200,  1100,  1000],
+  operatingCF:    [2800,  4500,  6800],
+  capex:          [-1689,-2422, -2565],
+  acquisitions:   [0,     -200,    0],
+  otherInvCF:     [-100,  -178,  -435],
+  investingCF:    [-1789,-2800, -3000],
+  debtIssued:     [500,   600,   1200],
+  debtRepaid:     [-400, -500,  -800],
+  buybacks:       [-800, -1000, -1000],
+  divPaid:        [0,    -155,  -441],
+  otherFinCF:     [-200,  -145,   41],
+  financingCF:    [-900, -1200, -1000],
+  fcf:            [1111,  2078,  4235],
+};
+
+// ── Assumptions (defaults = base case) ──────────────
+const A = {
+  // Revenue growth rates 2025-2029 (%)
+  revGrowth: [5.0, 12.0, 8.0, 6.0, 5.0],
+  // COGS as % of revenue
+  cogsMargin: [62.0, 60.0, 58.0, 57.0, 56.0],
+  // SG&A as % of revenue
+  sgaMargin: [3.8, 3.6, 3.4, 3.3, 3.2],
+  // D&A as % of revenue
+  daMargin: [9.0, 8.8, 8.6, 8.4, 8.2],
+  // Tax rate (%)
+  taxRate: [14.0, 14.0, 13.5, 13.5, 13.0],
+  // Interest expense ($M)
+  interestExp: [550, 600, 580, 560, 540],
+  // CapEx ($M)
+  capex: [3000, 3500, 3200, 3000, 2800],
+  // Shares outstanding (M) — includes Calpine dilution in 2026+
+  shares: [310, 360, 358, 355, 352],
+  // Dividend per share ($)
+  dps: [1.78, 2.10, 2.50, 2.90, 3.30],
+  // Working capital change ($M)
+  wcChange: [-200, -300, -250, -200, -150],
+  // Other operating CF ($M)
+  otherOpCF: [900, 850, 800, 750, 700],
+  // Net debt target / Debt ($M)
+  totalDebt: [8800, 13000, 12500, 12000, 11500],
+  // DCF parameters
+  wacc: 8.5,
+  terminalGrowth: 2.5,
+  // Current price for reference
+  currentPrice: 268.0,
+};
+
+// Scenarios
+const SCENARIOS = {
+  bear: {
+    revGrowth: [2.0, 5.0, 3.0, 2.0, 1.5],
+    cogsMargin: [65.0, 64.0, 63.0, 62.0, 61.0],
+    sgaMargin: [4.2, 4.0, 3.9, 3.8, 3.7],
+    daMargin: [9.5, 9.3, 9.2, 9.0, 8.8],
+    taxRate: [15.0, 15.0, 15.0, 14.5, 14.5],
+    interestExp: [570, 650, 640, 620, 600],
+    capex: [3200, 3800, 3500, 3300, 3100],
+    shares: [312, 365, 363, 361, 359],
+    dps: [1.60, 1.80, 2.00, 2.20, 2.40],
+    wcChange: [-300, -400, -350, -300, -250],
+    otherOpCF: [800, 750, 700, 650, 600],
+    totalDebt: [9200, 14000, 13500, 13000, 12500],
+    wacc: 9.5,
+    terminalGrowth: 2.0,
+    currentPrice: 268.0,
+  },
+  base: { ...structuredClone(A) },
+  bull: {
+    revGrowth: [8.0, 18.0, 12.0, 9.0, 7.0],
+    cogsMargin: [60.0, 57.0, 55.0, 53.0, 52.0],
+    sgaMargin: [3.5, 3.3, 3.1, 3.0, 2.9],
+    daMargin: [8.8, 8.5, 8.2, 8.0, 7.8],
+    taxRate: [13.0, 13.0, 12.5, 12.0, 12.0],
+    interestExp: [530, 560, 540, 520, 500],
+    capex: [2800, 3200, 3000, 2800, 2600],
+    shares: [308, 355, 350, 345, 340],
+    dps: [2.00, 2.50, 3.00, 3.50, 4.00],
+    wcChange: [-150, -200, -150, -100, -50],
+    otherOpCF: [1000, 950, 900, 850, 800],
+    totalDebt: [8500, 12000, 11000, 10000, 9500],
+    wacc: 7.5,
+    terminalGrowth: 3.0,
+    currentPrice: 268.0,
+  }
+};
+// Save base defaults
+SCENARIOS.base = JSON.parse(JSON.stringify(A));
+
+// ── Projection Engine ───────────────────────────────
+function project() {
+  const P = { years: [2025, 2026, 2027, 2028, 2029] };
+  const lastRev = H.revenue[2];
+
+  // Income Statement
+  P.revenue = []; P.cogs = []; P.grossProfit = []; P.sga = []; P.otherOpex = [];
+  P.da = []; P.ebitda = []; P.ebit = []; P.interestExp = []; P.pretaxIncome = [];
+  P.incomeTax = []; P.netIncome = []; P.eps = []; P.dividends = [];
+
+  for (let i = 0; i < 5; i++) {
+    const prev = i === 0 ? lastRev : P.revenue[i-1];
+    P.revenue[i]     = prev * (1 + A.revGrowth[i]/100);
+    P.cogs[i]        = P.revenue[i] * A.cogsMargin[i]/100;
+    P.grossProfit[i]  = P.revenue[i] - P.cogs[i];
+    P.sga[i]          = P.revenue[i] * A.sgaMargin[i]/100;
+    P.otherOpex[i]    = P.revenue[i] * 0.01;
+    P.da[i]           = P.revenue[i] * A.daMargin[i]/100;
+    P.ebitda[i]       = P.grossProfit[i] - P.sga[i] - P.otherOpex[i];
+    P.ebit[i]         = P.ebitda[i] - P.da[i];
+    P.interestExp[i]  = A.interestExp[i];
+    P.pretaxIncome[i] = P.ebit[i] - P.interestExp[i];
+    P.incomeTax[i]    = P.pretaxIncome[i] * A.taxRate[i]/100;
+    P.netIncome[i]    = P.pretaxIncome[i] - P.incomeTax[i];
+    P.eps[i]          = P.netIncome[i] / A.shares[i];
+    P.dividends[i]    = A.dps[i];
+  }
+
+  // Balance Sheet (simplified projection)
+  P.cash = []; P.receivables = []; P.inventory = []; P.otherCA = []; P.totalCA = [];
+  P.ppe = []; P.goodwill = []; P.otherNCA = []; P.totalAssets = [];
+  P.payables = []; P.stDebt = []; P.otherCL = []; P.totalCL = [];
+  P.ltDebt = []; P.otherLTL = []; P.totalLiab = []; P.totalEquity = [];
+  for (let i = 0; i < 5; i++) {
+    const revRatio = P.revenue[i] / H.revenue[2];
+    P.receivables[i] = Math.round(H.receivables[2] * revRatio);
+    P.inventory[i]   = Math.round(H.inventory[2] * revRatio);
+    P.payables[i]    = Math.round(H.payables[2] * revRatio);
+    P.otherCA[i]     = Math.round(H.otherCA[2] * revRatio);
+    P.ppe[i]         = (i===0 ? H.ppe[2] : P.ppe[i-1]) + A.capex[i] - P.da[i];
+    P.goodwill[i]    = i >= 1 ? 16200 : 6200; // Calpine adds ~$10B goodwill
+    P.otherNCA[i]    = Math.round(H.otherNCA[2] * (1 + 0.02*i));
+    P.stDebt[i]      = Math.round(A.totalDebt[i] * 0.10);
+    P.ltDebt[i]      = Math.round(A.totalDebt[i] * 0.90);
+    P.otherCL[i]     = Math.round(H.otherCL[2] * revRatio);
+    P.otherLTL[i]    = Math.round(H.otherLTL[2] * (1 + 0.01*i));
+    // Derive equity from retained earnings
+    const prevEquity = i===0 ? H.totalEquity[2] : P.totalEquity[i-1];
+    P.totalEquity[i] = prevEquity + P.netIncome[i] - A.dps[i]*A.shares[i];
+    P.totalLiab[i]   = P.stDebt[i] + P.ltDebt[i] + P.otherCL[i] + P.otherLTL[i];
+    P.totalCL[i]     = P.stDebt[i] + P.payables[i] + P.otherCL[i];
+    P.cash[i]        = 0; // solved below
+    P.totalCA[i]     = P.cash[i] + P.receivables[i] + P.inventory[i] + P.otherCA[i];
+    P.totalAssets[i]  = P.totalEquity[i] + P.totalLiab[i];
+    P.totalCA[i]     = P.totalAssets[i] - P.ppe[i] - P.goodwill[i] - P.otherNCA[i];
+    P.cash[i]        = P.totalCA[i] - P.receivables[i] - P.inventory[i] - P.otherCA[i];
+    if (P.cash[i] < 0) P.cash[i] = 500;
+  }
+
+  // Cash Flow Statement
+  P.netIncCF = [...P.netIncome]; P.daCF = [...P.da]; P.wcChange = [...A.wcChange];
+  P.otherOpCF = [...A.otherOpCF]; P.operatingCF = []; P.capex = []; P.investingCF = [];
+  P.acquisitions = [0, -4500, 0, 0, 0]; // Calpine acquisition in 2026
+  P.otherInvCF = [-200, -200, -200, -200, -200];
+  P.debtIssued = []; P.debtRepaid = []; P.buybacks = []; P.divPaid = [];
+  P.otherFinCF = [0,0,0,0,0]; P.financingCF = []; P.fcf = [];
+  for (let i = 0; i < 5; i++) {
+    P.operatingCF[i] = P.netIncCF[i] + P.daCF[i] + P.wcChange[i] + P.otherOpCF[i];
+    P.capex[i] = -A.capex[i];
+    P.investingCF[i] = P.capex[i] + P.acquisitions[i] + P.otherInvCF[i];
+    P.debtIssued[i] = i===1 ? 5000 : 500; // Large issuance for Calpine
+    P.debtRepaid[i] = i===1 ? -500 : -800;
+    P.buybacks[i] = i===1 ? 0 : -500;
+    P.divPaid[i] = -(A.dps[i] * A.shares[i]);
+    P.financingCF[i] = P.debtIssued[i] + P.debtRepaid[i] + P.buybacks[i] + P.divPaid[i] + P.otherFinCF[i];
+    P.fcf[i] = P.operatingCF[i] + P.capex[i];
+  }
+
+  return P;
+}
+
+// ── DCF Valuation ───────────────────────────────────
+function computeDCF(P) {
+  const wacc = A.wacc / 100;
+  const g    = A.terminalGrowth / 100;
+  const ufcf = P.revenue.map((r, i) => {
+    const ebit = P.ebit[i];
+    const nopat = ebit * (1 - A.taxRate[i]/100);
+    return nopat + P.da[i] - A.capex[i] + A.wcChange[i];
+  });
+  // PV of UFCF
+  const pvUFCF = ufcf.map((cf, i) => cf / Math.pow(1+wacc, i+1));
+  const sumPV = pvUFCF.reduce((a,b)=>a+b,0);
+  // Terminal Value (Gordon Growth)
+  const terminalFCF = ufcf[4] * (1+g);
+  const tv = terminalFCF / (wacc - g);
+  const pvTV = tv / Math.pow(1+wacc, 5);
+  const ev = sumPV + pvTV;
+  const lastDebt = A.totalDebt[0];
+  const lastCash = H.cash[2];
+  const equityVal = ev - lastDebt + lastCash;
+  const sharesForVal = A.shares[0];
+  const impliedPrice = equityVal / sharesForVal;
+  return { ufcf, pvUFCF, sumPV, tv, pvTV, ev, lastDebt, lastCash, equityVal, impliedPrice, sharesForVal, wacc, g };
+}
+
+// ── Sensitivity Tables ──────────────────────────────
+function buildSensitivity(P) {
+  const waccRange = [-2.0, -1.5, -1.0, -0.5, 0, 0.5, 1.0, 1.5, 2.0];
+  const gRange    = [-1.0, -0.5, 0, 0.5, 1.0];
+  const grid = [];
+  for (const dw of waccRange) {
+    const row = [];
+    const w = (A.wacc + dw) / 100;
+    for (const dg of gRange) {
+      const g = (A.terminalGrowth + dg) / 100;
+      if (w <= g) { row.push(NaN); continue; }
+      const ufcf = P.revenue.map((r, i) => {
+        const ebit = P.ebit[i];
+        const nopat = ebit * (1 - A.taxRate[i]/100);
+        return nopat + P.da[i] - A.capex[i] + A.wcChange[i];
+      });
+      const pvU = ufcf.map((cf, i) => cf / Math.pow(1+w, i+1));
+      const sP = pvU.reduce((a,b)=>a+b,0);
+      const tFCF = ufcf[4] * (1+g);
+      const tV = tFCF / (w - g);
+      const pvT = tV / Math.pow(1+w, 5);
+      const eV = sP + pvT;
+      const eq = eV - A.totalDebt[0] + H.cash[2];
+      row.push(eq / A.shares[0]);
+    }
+    grid.push({ wacc: A.wacc + dw, row });
+  }
+  return { gRange: gRange.map(d => A.terminalGrowth + d), grid };
+}
+
+function buildMultipleSensitivity(P) {
+  const multiples = [8, 10, 12, 14, 16, 18, 20];
+  const marginDeltas = [-4, -2, 0, 2, 4];
+  const grid = [];
+  for (const m of multiples) {
+    const row = [];
+    for (const dm of marginDeltas) {
+      const adjEBITDA = P.ebitda[4] * (1 + dm/100 * (P.revenue[4]/P.ebitda[4]));
+      const ev = adjEBITDA * m;
+      const eq = ev - A.totalDebt[4] + (P.cash[4] > 0 ? P.cash[4] : 500);
+      row.push(eq / A.shares[4]);
+    }
+    grid.push({ multiple: m, row });
+  }
+  return { marginDeltas, grid };
+}
+
+// ── Formatting ──────────────────────────────────────
+const fmt = (v, dec=0) => {
+  if (v === undefined || v === null || isNaN(v)) return '—';
+  const neg = v < 0;
+  const abs = Math.abs(v);
+  const s = abs.toFixed(dec).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return neg ? `(${s})` : s;
+};
+const fmtB = v => (v/1000).toFixed(1);
+const pct = (v, dec=1) => v === undefined ? '—' : v.toFixed(dec) + '%';
+
+// ── Render Helpers ──────────────────────────────────
+function renderTable(tableId, sections) {
+  const allYears = [...H.years, 2025, 2026, 2027, 2028, 2029];
+  let html = '<thead><tr><th></th>';
+  allYears.forEach((y, i) => {
+    html += `<th class="${i >= 3 ? 'proj' : ''}">${y}${i >= 3 ? 'E' : ''}</th>`;
+  });
+  html += '</tr></thead><tbody>';
+  const P = project();
+  for (const s of sections) {
+    if (s.type === 'header') {
+      html += `<tr class="section-header"><td colspan="${allYears.length+1}">${s.label}</td></tr>`;
+      continue;
+    }
+    if (s.type === 'spacer') { html += '<tr class="spacer"><td colspan="' + (allYears.length+1) + '"></td></tr>'; continue; }
+    const cls = s.cls || '';
+    html += `<tr class="${cls}"><td>${s.label}</td>`;
+    allYears.forEach((y, i) => {
+      let val;
+      if (i < 3) val = H[s.key] ? H[s.key][i] : undefined;
+      else val = P[s.key] ? P[s.key][i-3] : undefined;
+      const isNeg = val < 0;
+      const formatted = s.format === 'pct' ? pct(val) : s.format === 'x' ? (val !== undefined ? val.toFixed(1)+'x' : '—') : fmt(val, s.dec || 0);
+      html += `<td class="${i >= 3 ? 'proj' : ''} ${isNeg ? 'neg' : ''}">${formatted}</td>`;
+    });
+    html += '</tr>';
+  }
+  html += '</tbody>';
+  document.getElementById(tableId).innerHTML = html;
+}
+
+// ── Render Functions ────────────────────────────────
+function renderAll() {
+  const P = project();
+  const D = computeDCF(P);
+  renderKPIs(P, D);
+  renderAssumptions();
+  renderIncomeStatement(P);
+  renderBalanceSheet(P);
+  renderCashFlow(P);
+  renderDCF(P, D);
+  renderSensitivity(P);
+  renderCharts(P, D);
+}
+
+function renderKPIs(P, D) {
+  const rev24 = H.revenue[2]; const rev25 = P.revenue[0];
+  const ni24 = H.netIncome[2]; const ni25 = P.netIncome[0];
+  const ebitda24 = H.ebitda[2]; const ebitda25 = P.ebitda[0];
+  const fcf25 = P.fcf[0];
+  const kpis = [
+    { title: 'Revenue (2025E)', value: '$' + fmtB(rev25) + 'B', change: ((rev25/rev24-1)*100).toFixed(1)+'% YoY', up: rev25 > rev24 },
+    { title: 'EBITDA (2025E)', value: '$' + fmtB(ebitda25) + 'B', change: 'Margin ' + (ebitda25/rev25*100).toFixed(1)+'%', up: true },
+    { title: 'Net Income (2025E)', value: '$' + fmtB(ni25) + 'B', change: ((ni25/ni24-1)*100).toFixed(1)+'% YoY', up: ni25 > ni24 },
+    { title: 'EPS (2025E)', value: '$' + P.eps[0].toFixed(2), change: 'vs $'+H.eps[2].toFixed(2)+' (2024)', up: P.eps[0] > H.eps[2] },
+    { title: 'Free Cash Flow (2025E)', value: '$' + fmtB(fcf25) + 'B', change: 'FCF Yield ' + (fcf25/(A.currentPrice * A.shares[0])*100).toFixed(1)+'%', up: fcf25 > 0 },
+    { title: 'DCF Implied Price', value: '$' + D.impliedPrice.toFixed(0), change: ((D.impliedPrice/A.currentPrice-1)*100).toFixed(1)+'% vs current', up: D.impliedPrice > A.currentPrice },
+    { title: 'EV / EBITDA (2025E)', value: ((D.ev/ebitda25)).toFixed(1)+'x', change: 'Enterprise Value: $'+fmtB(D.ev)+'B', up: true },
+    { title: 'Net Debt / EBITDA', value: ((A.totalDebt[0] - H.cash[2])/ebitda25).toFixed(1)+'x', change: 'Net Debt: $'+fmtB(A.totalDebt[0] - H.cash[2])+'B', up: false },
+  ];
+  const el = document.getElementById('kpi-cards');
+  el.innerHTML = kpis.map(k => `
+    <div class="card">
+      <h3>${k.title}</h3>
+      <div class="value">${k.value}</div>
+      <div class="change ${k.up ? 'up' : 'down'}">${k.change}</div>
+    </div>`).join('');
+}
+
+function renderAssumptions() {
+  const groups = [
+    { containerId: 'assumptionsRevenue', items: [
+      ...A.revGrowth.map((v,i) => ({key: `revGrowth_${i}`, label: `Revenue Growth ${2025+i}E`, value: v, unit: '%', step: 0.5})),
+    ]},
+    { containerId: 'assumptionsMargins', items: [
+      ...A.cogsMargin.map((v,i) => ({key: `cogsMargin_${i}`, label: `COGS Margin ${2025+i}E`, value: v, unit: '% of Rev', step: 0.5})),
+      ...A.sgaMargin.map((v,i) => ({key: `sgaMargin_${i}`, label: `SG&A Margin ${2025+i}E`, value: v, unit: '% of Rev', step: 0.1})),
+      ...A.daMargin.map((v,i) => ({key: `daMargin_${i}`, label: `D&A Margin ${2025+i}E`, value: v, unit: '% of Rev', step: 0.1})),
+      ...A.taxRate.map((v,i) => ({key: `taxRate_${i}`, label: `Tax Rate ${2025+i}E`, value: v, unit: '%', step: 0.5})),
+      ...A.interestExp.map((v,i) => ({key: `interestExp_${i}`, label: `Interest Exp ${2025+i}E`, value: v, unit: '$M', step: 10})),
+    ]},
+    { containerId: 'assumptionsCapital', items: [
+      ...A.capex.map((v,i) => ({key: `capex_${i}`, label: `CapEx ${2025+i}E`, value: v, unit: '$M', step: 50})),
+      ...A.shares.map((v,i) => ({key: `shares_${i}`, label: `Shares Out ${2025+i}E`, value: v, unit: 'M', step: 1})),
+      ...A.dps.map((v,i) => ({key: `dps_${i}`, label: `DPS ${2025+i}E`, value: v, unit: '$', step: 0.1})),
+      ...A.totalDebt.map((v,i) => ({key: `totalDebt_${i}`, label: `Total Debt ${2025+i}E`, value: v, unit: '$M', step: 100})),
+      { key: 'wacc', label: 'WACC', value: A.wacc, unit: '%', step: 0.25 },
+      { key: 'terminalGrowth', label: 'Terminal Growth Rate', value: A.terminalGrowth, unit: '%', step: 0.25 },
+      { key: 'currentPrice', label: 'Current Share Price', value: A.currentPrice, unit: '$', step: 1 },
+    ]},
+  ];
+  for (const g of groups) {
+    const el = document.getElementById(g.containerId);
+    // Only rebuild if inputs don't exist yet (avoid re-render losing focus)
+    if (el.children.length === g.items.length) continue;
+    el.innerHTML = g.items.map(it => `
+      <div class="input-group">
+        <label>${it.label}</label>
+        <input type="number" step="${it.step}" value="${it.value}" data-key="${it.key}" onchange="onAssumptionChange(this)" oninput="onAssumptionInput(this)">
+        <div class="unit">${it.unit}</div>
+      </div>`).join('');
+  }
+}
+
+function onAssumptionChange(el) { updateAssumption(el); }
+function onAssumptionInput(el)  { updateAssumption(el); }
+function updateAssumption(el) {
+  const key = el.dataset.key;
+  const val = parseFloat(el.value);
+  if (isNaN(val)) return;
+  // Array keys like "revGrowth_2"
+  const m = key.match(/^(.+)_(\d+)$/);
+  if (m) {
+    A[m[1]][parseInt(m[2])] = val;
+  } else {
+    A[key] = val;
+  }
+  renderAll();
+}
+
+function applyScenario(name) {
+  const s = SCENARIOS[name];
+  if (!s) return;
+  for (const k of Object.keys(s)) {
+    if (Array.isArray(s[k])) A[k] = [...s[k]];
+    else A[k] = s[k];
+  }
+  // Update button styling
+  document.querySelectorAll('.scenario-btn').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+  // Clear and re-render assumption inputs
+  ['assumptionsRevenue','assumptionsMargins','assumptionsCapital'].forEach(id => {
+    document.getElementById(id).innerHTML = '';
+  });
+  renderAll();
+}
+
+function renderIncomeStatement(P) {
+  // Calculate EBITDA margin and net margin for historical
+  const sections = [
+    { type: 'header', label: 'Revenue' },
+    { label: 'Total Revenue', key: 'revenue' },
+    { type: 'spacer' },
+    { type: 'header', label: 'Cost & Expenses' },
+    { label: 'Cost of Revenue', key: 'cogs' },
+    { label: 'Gross Profit', key: 'grossProfit', cls: 'subtotal' },
+    { label: 'SG&A Expenses', key: 'sga' },
+    { label: 'Other Operating Expenses', key: 'otherOpex' },
+    { label: 'Depreciation & Amortization', key: 'da' },
+    { type: 'spacer' },
+    { label: 'EBITDA', key: 'ebitda', cls: 'subtotal' },
+    { label: 'EBIT (Operating Income)', key: 'ebit', cls: 'subtotal' },
+    { type: 'spacer' },
+    { type: 'header', label: 'Below the Line' },
+    { label: 'Interest Expense', key: 'interestExp' },
+    { label: 'Pre-Tax Income', key: 'pretaxIncome', cls: 'subtotal' },
+    { label: 'Income Tax', key: 'incomeTax' },
+    { label: 'Net Income', key: 'netIncome', cls: 'total' },
+    { type: 'spacer' },
+    { label: 'EPS (Diluted)', key: 'eps', dec: 2 },
+    { label: 'Shares Outstanding (M)', key: 'sharesOut' },
+    { label: 'Dividends Per Share', key: 'dividends', dec: 2 },
+  ];
+  // Map shares / dividends for projections
+  P.sharesOut = A.shares;
+  renderTable('tableIncome', sections);
+}
+
+function renderBalanceSheet(P) {
+  const sections = [
+    { type: 'header', label: 'Assets' },
+    { label: 'Cash & Equivalents', key: 'cash' },
+    { label: 'Accounts Receivable', key: 'receivables' },
+    { label: 'Inventory', key: 'inventory' },
+    { label: 'Other Current Assets', key: 'otherCA' },
+    { label: 'Total Current Assets', key: 'totalCA', cls: 'subtotal' },
+    { type: 'spacer' },
+    { label: 'PP&E (Net)', key: 'ppe' },
+    { label: 'Goodwill & Intangibles', key: 'goodwill' },
+    { label: 'Other Non-Current Assets', key: 'otherNCA' },
+    { label: 'Total Assets', key: 'totalAssets', cls: 'total' },
+    { type: 'spacer' },
+    { type: 'header', label: 'Liabilities' },
+    { label: 'Accounts Payable', key: 'payables' },
+    { label: 'Short-Term Debt', key: 'stDebt' },
+    { label: 'Other Current Liabilities', key: 'otherCL' },
+    { label: 'Total Current Liabilities', key: 'totalCL', cls: 'subtotal' },
+    { type: 'spacer' },
+    { label: 'Long-Term Debt', key: 'ltDebt' },
+    { label: 'Other Long-Term Liabilities', key: 'otherLTL' },
+    { label: 'Total Liabilities', key: 'totalLiab', cls: 'subtotal' },
+    { type: 'spacer' },
+    { type: 'header', label: 'Equity' },
+    { label: 'Total Equity', key: 'totalEquity', cls: 'total' },
+  ];
+  renderTable('tableBalance', sections);
+}
+
+function renderCashFlow(P) {
+  const sections = [
+    { type: 'header', label: 'Operating Activities' },
+    { label: 'Net Income', key: 'netIncCF' },
+    { label: 'Depreciation & Amortization', key: 'daCF' },
+    { label: 'Working Capital Changes', key: 'wcChange' },
+    { label: 'Other Operating', key: 'otherOpCF' },
+    { label: 'Cash from Operations', key: 'operatingCF', cls: 'subtotal' },
+    { type: 'spacer' },
+    { type: 'header', label: 'Investing Activities' },
+    { label: 'Capital Expenditures', key: 'capex' },
+    { label: 'Acquisitions', key: 'acquisitions' },
+    { label: 'Other Investing', key: 'otherInvCF' },
+    { label: 'Cash from Investing', key: 'investingCF', cls: 'subtotal' },
+    { type: 'spacer' },
+    { type: 'header', label: 'Financing Activities' },
+    { label: 'Debt Issued', key: 'debtIssued' },
+    { label: 'Debt Repaid', key: 'debtRepaid' },
+    { label: 'Share Buybacks', key: 'buybacks' },
+    { label: 'Dividends Paid', key: 'divPaid' },
+    { label: 'Other Financing', key: 'otherFinCF' },
+    { label: 'Cash from Financing', key: 'financingCF', cls: 'subtotal' },
+    { type: 'spacer' },
+    { label: 'Free Cash Flow', key: 'fcf', cls: 'total' },
+  ];
+  renderTable('tableCashflow', sections);
+}
+
+function renderDCF(P, D) {
+  // Summary cards
+  const cards = [
+    { title: 'Enterprise Value', value: '$' + fmtB(D.ev) + 'B' },
+    { title: 'PV of Cash Flows', value: '$' + fmtB(D.sumPV) + 'B' },
+    { title: 'PV of Terminal Value', value: '$' + fmtB(D.pvTV) + 'B' },
+    { title: 'TV as % of EV', value: (D.pvTV/D.ev*100).toFixed(1) + '%' },
+    { title: 'Equity Value', value: '$' + fmtB(D.equityVal) + 'B' },
+    { title: 'Implied Price / Share', value: '$' + D.impliedPrice.toFixed(2) },
+    { title: 'Current Price', value: '$' + A.currentPrice.toFixed(2) },
+    { title: 'Upside / Downside', value: ((D.impliedPrice/A.currentPrice-1)*100).toFixed(1) + '%' },
+  ];
+  document.getElementById('dcf-cards').innerHTML = cards.map(c => `
+    <div class="card"><h3>${c.title}</h3><div class="value">${c.value}</div></div>`).join('');
+
+  // DCF detail table
+  let html = '<thead><tr><th>Year</th>';
+  for (let i = 0; i < 5; i++) html += `<th>${2025+i}E</th>`;
+  html += '<th>Terminal</th></tr></thead><tbody>';
+  const rows = [
+    { label: 'Revenue', vals: P.revenue.map(v=>fmt(v)) },
+    { label: 'EBIT', vals: P.ebit.map(v=>fmt(v)) },
+    { label: 'NOPAT', vals: P.ebit.map((v,i)=>fmt(v*(1-A.taxRate[i]/100))) },
+    { label: '+ D&A', vals: P.da.map(v=>fmt(v)) },
+    { label: '- CapEx', vals: A.capex.map(v=>fmt(-v)) },
+    { label: '+/- WC Changes', vals: A.wcChange.map(v=>fmt(v)) },
+    { label: 'Unlevered FCF', vals: D.ufcf.map(v=>fmt(v)), cls: 'subtotal' },
+    { label: 'Discount Factor', vals: D.ufcf.map((_,i) => (1/Math.pow(1+D.wacc,i+1)).toFixed(4)) },
+    { label: 'PV of UFCF', vals: D.pvUFCF.map(v=>fmt(v)), cls: 'subtotal' },
+  ];
+  for (const r of rows) {
+    html += `<tr class="${r.cls||''}"><td>${r.label}</td>`;
+    r.vals.forEach(v => html += `<td>${v}</td>`);
+    html += '<td></td></tr>';
+  }
+  html += `<tr class="total"><td>Terminal Value</td><td colspan="5"></td><td>${fmt(D.tv)}</td></tr>`;
+  html += `<tr class="total"><td>PV of Terminal Value</td><td colspan="5"></td><td>${fmt(D.pvTV)}</td></tr>`;
+  html += `<tr><td colspan="7" style="border:none;padding:4px"></td></tr>`;
+  html += `<tr class="subtotal"><td>Sum of PV (FCFs)</td><td colspan="6" style="text-align:left;padding-left:40px">${fmt(D.sumPV)}</td></tr>`;
+  html += `<tr class="subtotal"><td>+ PV Terminal Value</td><td colspan="6" style="text-align:left;padding-left:40px">${fmt(D.pvTV)}</td></tr>`;
+  html += `<tr class="total"><td>Enterprise Value</td><td colspan="6" style="text-align:left;padding-left:40px">${fmt(D.ev)}</td></tr>`;
+  html += `<tr><td>- Net Debt</td><td colspan="6" style="text-align:left;padding-left:40px">(${fmt(D.lastDebt - D.lastCash)})</td></tr>`;
+  html += `<tr class="total"><td>Equity Value</td><td colspan="6" style="text-align:left;padding-left:40px">${fmt(D.equityVal)}</td></tr>`;
+  html += `<tr class="total"><td>Implied Price / Share</td><td colspan="6" style="text-align:left;padding-left:40px;color:var(--accent)">$${D.impliedPrice.toFixed(2)}</td></tr>`;
+  html += '</tbody>';
+  document.getElementById('tableDCF').innerHTML = html;
+}
+
+function renderSensitivity(P) {
+  const S = buildSensitivity(P);
+  let html = '<thead><tr><th>WACC \\ Terminal g</th>';
+  S.gRange.forEach(g => html += `<th>${g.toFixed(1)}%</th>`);
+  html += '</tr></thead><tbody>';
+  S.grid.forEach(r => {
+    const isBase = Math.abs(r.wacc - A.wacc) < 0.01;
+    html += `<tr><td style="font-weight:700">${r.wacc.toFixed(1)}%</td>`;
+    r.row.forEach((v, i) => {
+      const isBaseG = Math.abs(S.gRange[i] - A.terminalGrowth) < 0.01;
+      const hl = isBase && isBaseG ? ' highlight' : '';
+      const cls = isNaN(v) ? '' : v > A.currentPrice ? ' above' : ' below';
+      html += `<td class="${hl}${cls}">${isNaN(v) ? 'N/A' : '$'+v.toFixed(0)}</td>`;
+    });
+    html += '</tr>';
+  });
+  html += '</tbody>';
+  document.getElementById('tableSens').innerHTML = html;
+
+  // Multiple sensitivity
+  const M = buildMultipleSensitivity(P);
+  let html2 = '<thead><tr><th>EV/EBITDA \\ EBITDA Margin Δ</th>';
+  M.marginDeltas.forEach(d => html2 += `<th>${d >= 0 ? '+' : ''}${d}%</th>`);
+  html2 += '</tr></thead><tbody>';
+  M.grid.forEach(r => {
+    html2 += `<tr><td style="font-weight:700">${r.multiple.toFixed(0)}x</td>`;
+    r.row.forEach((v, i) => {
+      const hl = M.marginDeltas[i] === 0 && (r.multiple === 14 || r.multiple === 16) ? ' highlight' : '';
+      const cls = v > A.currentPrice ? ' above' : ' below';
+      html2 += `<td class="${hl}${cls}">$${v.toFixed(0)}</td>`;
+    });
+    html2 += '</tr>';
+  });
+  html2 += '</tbody>';
+  document.getElementById('tableSensMultiple').innerHTML = html2;
+}
+
+// ── Chart Rendering ─────────────────────────────────
+let charts = {};
+const COLORS = {
+  blue: '#3b82f6', indigo: '#6366f1', green: '#22c55e',
+  red: '#ef4444', yellow: '#eab308', orange: '#f97316',
+  purple: '#a855f7', cyan: '#06b6d4', gray: '#64748b',
+  blueA: 'rgba(59,130,246,.15)', greenA: 'rgba(34,197,94,.15)',
+  redA: 'rgba(239,68,68,.15)', indigoA: 'rgba(99,102,241,.15)',
+};
+
+function destroyCharts() {
+  Object.values(charts).forEach(c => { try { c.destroy(); } catch(e){} });
+  charts = {};
+}
+
+function makeChart(id, config) {
+  const ctx = document.getElementById(id);
+  if (!ctx) return;
+  config.options = config.options || {};
+  config.options.responsive = true;
+  config.options.maintainAspectRatio = false;
+  config.options.plugins = config.options.plugins || {};
+  config.options.plugins.legend = config.options.plugins.legend || { labels: { color: '#94a3b8', font: { size: 11 } } };
+  if (!config.options.scales) config.options.scales = {};
+  for (const axis of ['x','y','y1']) {
+    if (config.options.scales[axis]) {
+      config.options.scales[axis].ticks = config.options.scales[axis].ticks || {};
+      config.options.scales[axis].ticks.color = '#64748b';
+      config.options.scales[axis].grid = config.options.scales[axis].grid || {};
+      config.options.scales[axis].grid.color = 'rgba(51,65,85,.3)';
+    }
+  }
+  charts[id] = new Chart(ctx, config);
+}
+
+function renderCharts(P, D) {
+  destroyCharts();
+  const labels = [...H.years.map(String), ...P.years.map(y => y + 'E')];
+  const hLen = H.years.length;
+  const pLen = P.years.length;
+  const allRev = [...H.revenue, ...P.revenue].map(v => v/1000);
+  const allEBITDA = [...H.ebitda, ...P.ebitda].map(v => v/1000);
+  const allNI = [...H.netIncome, ...P.netIncome].map(v => v/1000);
+  const allEPS = [...H.eps, ...P.eps];
+  const allFCF = [...H.fcf, ...P.fcf].map(v => v/1000);
+  const allGrossM = [...H.years.map((_,i)=>H.grossProfit[i]/H.revenue[i]*100), ...P.years.map((_,i)=>P.grossProfit[i]/P.revenue[i]*100)];
+  const allEBITDAM = [...H.years.map((_,i)=>H.ebitda[i]/H.revenue[i]*100), ...P.years.map((_,i)=>P.ebitda[i]/P.revenue[i]*100)];
+  const allNetM = [...H.years.map((_,i)=>H.netIncome[i]/H.revenue[i]*100), ...P.years.map((_,i)=>P.netIncome[i]/P.revenue[i]*100)];
+
+  // Overview: Revenue & EBITDA
+  makeChart('chartOverviewRevenue', {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Revenue ($B)', data: allRev, backgroundColor: COLORS.blueA, borderColor: COLORS.blue, borderWidth: 1 },
+        { label: 'EBITDA ($B)', data: allEBITDA, backgroundColor: COLORS.indigoA, borderColor: COLORS.indigo, borderWidth: 1 },
+      ]
+    },
+    options: { scales: { x: {}, y: { beginAtZero: true } } }
+  });
+
+  // Overview: Net Income & EPS
+  makeChart('chartOverviewNI', {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Net Income ($B)', data: allNI, backgroundColor: COLORS.greenA, borderColor: COLORS.green, borderWidth: 1, yAxisID: 'y' },
+        { label: 'EPS ($)', data: allEPS, type: 'line', borderColor: COLORS.orange, backgroundColor: 'transparent', pointRadius: 4, pointBackgroundColor: COLORS.orange, yAxisID: 'y1' },
+      ]
+    },
+    options: { scales: { x: {}, y: { beginAtZero: true, position: 'left' }, y1: { position: 'right', grid: { drawOnChartArea: false } } } }
+  });
+
+  // Overview: Margins
+  makeChart('chartOverviewMargins', {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Gross Margin', data: allGrossM, borderColor: COLORS.blue, backgroundColor: 'transparent', tension: .3 },
+        { label: 'EBITDA Margin', data: allEBITDAM, borderColor: COLORS.indigo, backgroundColor: 'transparent', tension: .3 },
+        { label: 'Net Margin', data: allNetM, borderColor: COLORS.green, backgroundColor: 'transparent', tension: .3 },
+      ]
+    },
+    options: { scales: { x: {}, y: {} } }
+  });
+
+  // Overview: FCF
+  makeChart('chartOverviewFCF', {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Free Cash Flow ($B)', data: allFCF, backgroundColor: allFCF.map(v => v >= 0 ? COLORS.greenA : COLORS.redA), borderColor: allFCF.map(v => v >= 0 ? COLORS.green : COLORS.red), borderWidth: 1 },
+      ]
+    },
+    options: { scales: { x: {}, y: {} } }
+  });
+
+  // Charts tab: Revenue Composition (nuclear vs other)
+  makeChart('chartRevComp', {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Nuclear Generation', data: allRev.map(v => v * 0.82), backgroundColor: COLORS.blue, borderRadius: 4 },
+        { label: 'Renewables & Gas', data: allRev.map(v => v * 0.12), backgroundColor: COLORS.green, borderRadius: 4 },
+        { label: 'Other / Retail', data: allRev.map(v => v * 0.06), backgroundColor: COLORS.purple, borderRadius: 4 },
+      ]
+    },
+    options: { scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } } }
+  });
+
+  // Charts tab: EBITDA & Margin
+  makeChart('chartEBITDA', {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: 'EBITDA ($B)', data: allEBITDA, backgroundColor: COLORS.indigoA, borderColor: COLORS.indigo, borderWidth: 1, yAxisID: 'y' },
+        { label: 'EBITDA Margin (%)', data: allEBITDAM, type: 'line', borderColor: COLORS.orange, backgroundColor: 'transparent', pointRadius: 4, pointBackgroundColor: COLORS.orange, yAxisID: 'y1' },
+      ]
+    },
+    options: { scales: { x: {}, y: { beginAtZero: true }, y1: { position: 'right', grid: { drawOnChartArea: false } } } }
+  });
+
+  // Charts tab: CapEx vs D&A
+  const allCapex = [...H.capex.map(v=>Math.abs(v)/1000), ...A.capex.map(v=>v/1000)];
+  const allDA = [...H.da.map(v=>v/1000), ...P.da.map(v=>v/1000)];
+  makeChart('chartCapex', {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: 'CapEx ($B)', data: allCapex, backgroundColor: COLORS.redA, borderColor: COLORS.red, borderWidth: 1 },
+        { label: 'D&A ($B)', data: allDA, backgroundColor: COLORS.blueA, borderColor: COLORS.blue, borderWidth: 1 },
+      ]
+    },
+    options: { scales: { x: {}, y: { beginAtZero: true } } }
+  });
+
+  // Charts tab: Debt & leverage
+  const allDebt = [...[H.stDebt[0]+H.ltDebt[0], H.stDebt[1]+H.ltDebt[1], H.stDebt[2]+H.ltDebt[2]].map(v=>v/1000), ...A.totalDebt.map(v=>v/1000)];
+  const allLeverage = allDebt.map((d, i) => {
+    const ebitda = i < 3 ? H.ebitda[i] : P.ebitda[i-3];
+    return ((d*1000 - (i<3?H.cash[i]:P.cash[i-3]))/ebitda);
+  });
+  makeChart('chartDebt', {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Total Debt ($B)', data: allDebt, backgroundColor: COLORS.redA, borderColor: COLORS.red, borderWidth: 1, yAxisID: 'y' },
+        { label: 'Net Debt / EBITDA', data: allLeverage, type: 'line', borderColor: COLORS.yellow, backgroundColor: 'transparent', pointRadius: 4, pointBackgroundColor: COLORS.yellow, yAxisID: 'y1' },
+      ]
+    },
+    options: { scales: { x: {}, y: { beginAtZero: true }, y1: { position: 'right', grid: { drawOnChartArea: false } } } }
+  });
+
+  // Charts tab: Returns
+  const allROE = labels.map((_, i) => {
+    const ni = i < 3 ? H.netIncome[i] : P.netIncome[i-3];
+    const eq = i < 3 ? H.totalEquity[i] : P.totalEquity[i-3];
+    return eq > 0 ? (ni/eq*100) : 0;
+  });
+  const allROIC = labels.map((_, i) => {
+    const ebit = i < 3 ? H.ebit[i] : P.ebit[i-3];
+    const tax = i < 3 ? (H.incomeTax[i]/Math.max(1,H.pretaxIncome[i])) : (A.taxRate[i-3]/100);
+    const eq = i < 3 ? H.totalEquity[i] : P.totalEquity[i-3];
+    const debt = i < 3 ? (H.stDebt[i]+H.ltDebt[i]) : A.totalDebt[i-3];
+    const ic = eq + debt;
+    return ic > 0 ? (ebit*(1-Math.abs(tax))/ic*100) : 0;
+  });
+  makeChart('chartReturns', {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        { label: 'ROE (%)', data: allROE, borderColor: COLORS.green, backgroundColor: 'transparent', tension: .3 },
+        { label: 'ROIC (%)', data: allROIC, borderColor: COLORS.cyan, backgroundColor: 'transparent', tension: .3 },
+      ]
+    },
+    options: { scales: { x: {}, y: {} } }
+  });
+
+  // Charts tab: EPS & DPS
+  const allDPS = [...H.dividends, ...P.dividends];
+  makeChart('chartEPSDPS', {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: 'EPS ($)', data: allEPS, backgroundColor: COLORS.blueA, borderColor: COLORS.blue, borderWidth: 1 },
+        { label: 'DPS ($)', data: allDPS, backgroundColor: COLORS.greenA, borderColor: COLORS.green, borderWidth: 1 },
+      ]
+    },
+    options: { scales: { x: {}, y: {} } }
+  });
+
+  // DCF Bridge chart
+  makeChart('chartDCFBridge', {
+    type: 'bar',
+    data: {
+      labels: ['PV of FCFs', 'PV of Terminal Value', 'Enterprise Value', '- Net Debt', 'Equity Value'],
+      datasets: [{
+        data: [D.sumPV/1000, D.pvTV/1000, D.ev/1000, -(D.lastDebt - D.lastCash)/1000, D.equityVal/1000],
+        backgroundColor: [COLORS.blue, COLORS.indigo, COLORS.purple, COLORS.red, COLORS.green],
+        borderRadius: 6,
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      scales: { x: { beginAtZero: true }, y: {} },
+      plugins: { legend: { display: false } }
+    }
+  });
+}
+
+// ── Tab Navigation ──────────────────────────────────
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('panel-' + tab.dataset.tab).classList.add('active');
+    // Re-render charts when switching to a charts tab (canvas resize)
+    if (['overview','charts','dcf'].includes(tab.dataset.tab)) {
+      const P = project();
+      const D = computeDCF(P);
+      renderCharts(P, D);
+    }
+  });
+});
+
+// ── Initial Render ──────────────────────────────────
+renderAll();
+</script>
+</body>
+</html>
