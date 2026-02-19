@@ -486,43 +486,16 @@
   // --- Input: Keyboard ---
   document.addEventListener('keydown', e => {
     if (gameOver || !piece) return;
-    if (paused && e.key !== 'p' && e.key !== 'P') return;
+    if (paused && e.key !== ' ') return;
 
     switch (e.key) {
       case 'ArrowLeft':  e.preventDefault(); moveLeft(); break;
       case 'ArrowRight': e.preventDefault(); moveRight(); break;
-      case 'ArrowDown':  e.preventDefault(); moveDown(); lastDrop = performance.now(); break;
+      case 'ArrowDown':  e.preventDefault(); hardDrop(); break;
       case 'ArrowUp':    e.preventDefault(); rotatePiece(); break;
-      case ' ':          e.preventDefault(); hardDrop(); break;
-      case 'p': case 'P': togglePause(); break;
+      case ' ':          e.preventDefault(); togglePause(); break;
     }
   });
-
-  // --- Swipe gestures for touch gameplay ---
-  let touchStartX = null, touchStartY = null, touchStartTime = null;
-  canvas.addEventListener('touchstart', e => {
-    if (gameOver || !piece || paused) return;
-    const t = e.touches[0];
-    touchStartX = t.clientX;
-    touchStartY = t.clientY;
-    touchStartTime = Date.now();
-  }, { passive: true });
-
-  canvas.addEventListener('touchend', e => {
-    if (touchStartX === null || gameOver || !piece || paused) return;
-    const t = e.changedTouches[0];
-    const dx = t.clientX - touchStartX;
-    const dy = t.clientY - touchStartY;
-    const dt = Date.now() - touchStartTime;
-    const absDx = Math.abs(dx), absDy = Math.abs(dy);
-
-    if (absDx < 15 && absDy < 15 && dt < 300) {
-      rotatePiece(); // tap to rotate
-    } else if (absDy > 60 && absDy > absDx && dy > 0 && dt < 400) {
-      hardDrop(); // swipe down = hard drop
-    }
-    touchStartX = null;
-  }, { passive: true });
 
   // --- Buttons ---
   // Use both click and touchend for reliable iPad support
