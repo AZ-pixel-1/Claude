@@ -130,6 +130,12 @@
   .btn { touch-action: manipulation; }
   .btn:active { transform: scale(0.96); }
 
+  .pause-btn {
+    width: 100%;
+    padding: 10px;
+    font-size: 16px;
+    letter-spacing: 1px;
+  }
 
   @media (max-width: 600px) {
     .game-wrapper { gap: 12px; padding: 10px; }
@@ -148,7 +154,7 @@
 </div>
 
 <!-- Game Over Screen -->
-<div class="overlay hidden" id="gameover-screen" onclick="window._startGame && window._startGame()">
+<div class="overlay hidden" id="gameover-screen">
   <h2>Game Over</h2>
   <div class="score-display" id="final-score"></div>
   <button class="btn" id="restart-btn" onclick="window._startGame && window._startGame()">Play Again</button>
@@ -180,6 +186,7 @@
       <h3>Next</h3>
       <canvas id="next-canvas" width="100" height="100"></canvas>
     </div>
+    <button class="btn pause-btn" id="pause-btn" onclick="window._togglePause && window._togglePause()">Pause</button>
   </div>
   <div class="board-container">
     <canvas id="board" width="300" height="600"></canvas>
@@ -238,6 +245,7 @@
   const gameoverScreen = document.getElementById('gameover-screen');
   const pauseScreen = document.getElementById('pause-screen');
   const finalScoreEl = document.getElementById('final-score');
+  const pauseBtn = document.getElementById('pause-btn');
 
   // --- Game state ---
   let board, piece, nextPiece, score, lines, level, gameOver, paused, dropInterval, lastDrop, animFrameId;
@@ -409,8 +417,6 @@
   function moveDown() {
     if (valid(piece.shape, piece.x, piece.y + 1)) {
       piece.y++;
-      score += 1;
-      updateUI();
     } else {
       lock();
     }
@@ -418,9 +424,7 @@
   function hardDrop() {
     while (valid(piece.shape, piece.x, piece.y + 1)) {
       piece.y++;
-      score += 2;
     }
-    updateUI();
     lock();
   }
   function rotatePiece() {
@@ -462,6 +466,7 @@
     startScreen.classList.add('hidden');
     gameoverScreen.classList.add('hidden');
     pauseScreen.classList.add('hidden');
+    pauseBtn.textContent = 'Pause';
     animFrameId = requestAnimationFrame(gameLoop);
   }
 
@@ -477,8 +482,10 @@
     paused = !paused;
     if (paused) {
       pauseScreen.classList.remove('hidden');
+      pauseBtn.textContent = 'Resume';
     } else {
       pauseScreen.classList.add('hidden');
+      pauseBtn.textContent = 'Pause';
       lastDrop = performance.now();
     }
   }
@@ -503,6 +510,7 @@
     document.getElementById('start-btn').addEventListener(evt, e => { e.preventDefault(); startGame(); });
     document.getElementById('restart-btn').addEventListener(evt, e => { e.preventDefault(); startGame(); });
     document.getElementById('resume-btn').addEventListener(evt, e => { e.preventDefault(); togglePause(); });
+    pauseBtn.addEventListener(evt, e => { e.preventDefault(); togglePause(); });
   });
 
   // Prevent scroll on arrow keys
