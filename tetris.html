@@ -192,25 +192,24 @@
 <body>
 
 <!-- Start Screen -->
-<div class="overlay" id="start-screen">
+<div class="overlay" id="start-screen" onclick="window._startGame && window._startGame()">
   <h1>TETRIS</h1>
-  <p>Arrow keys to move & rotate</p>
-  <p>Down = soft drop, Space = hard drop</p>
-  <button class="btn" id="start-btn">Play</button>
+  <p>Tap anywhere to start!</p>
+  <button class="btn" id="start-btn" onclick="window._startGame && window._startGame()">Play</button>
 </div>
 
 <!-- Game Over Screen -->
-<div class="overlay hidden" id="gameover-screen">
+<div class="overlay hidden" id="gameover-screen" onclick="window._startGame && window._startGame()">
   <h2>Game Over</h2>
   <div class="score-display" id="final-score"></div>
-  <button class="btn" id="restart-btn">Play Again</button>
+  <button class="btn" id="restart-btn" onclick="window._startGame && window._startGame()">Play Again</button>
 </div>
 
 <!-- Pause overlay -->
-<div class="overlay hidden" id="pause-screen">
+<div class="overlay hidden" id="pause-screen" onclick="window._togglePause && window._togglePause()">
   <h2>Paused</h2>
-  <p>Press P or tap to resume</p>
-  <button class="btn" id="resume-btn">Resume</button>
+  <p>Tap to resume</p>
+  <button class="btn" id="resume-btn" onclick="window._togglePause && window._togglePause()">Resume</button>
 </div>
 
 <!-- Game layout -->
@@ -514,6 +513,7 @@
     animFrameId = requestAnimationFrame(gameLoop);
   }
 
+  window._startGame = startGame;
   function startGame() {
     board = createBoard();
     score = 0; lines = 0; level = 1;
@@ -536,6 +536,7 @@
     gameoverScreen.classList.remove('hidden');
   }
 
+  window._togglePause = togglePause;
   function togglePause() {
     if (gameOver) return;
     paused = !paused;
