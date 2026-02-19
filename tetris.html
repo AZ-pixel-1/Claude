@@ -16,7 +16,6 @@
     font-family: 'Courier New', monospace;
     color: #e0e0e0;
     overflow: hidden;
-    touch-action: none;
   }
 
   .game-wrapper {
@@ -70,6 +69,7 @@
 
   #board {
     display: block;
+    touch-action: none;
   }
 
   .overlay {
@@ -127,6 +127,7 @@
   }
 
   .btn:hover { background: #c73652; }
+  .btn { touch-action: manipulation; }
   .btn:active { transform: scale(0.96); }
 
   /* Touch controls for iPad */
@@ -137,6 +138,7 @@
     left: 0; right: 0;
     padding: 0 20px;
     z-index: 5;
+    touch-action: none;
   }
 
   .touch-row {
@@ -630,9 +632,12 @@
   }, { passive: true });
 
   // --- Buttons ---
-  document.getElementById('start-btn').addEventListener('click', startGame);
-  document.getElementById('restart-btn').addEventListener('click', startGame);
-  document.getElementById('resume-btn').addEventListener('click', togglePause);
+  // Use both click and touchend for reliable iPad support
+  ['click', 'touchend'].forEach(evt => {
+    document.getElementById('start-btn').addEventListener(evt, e => { e.preventDefault(); startGame(); });
+    document.getElementById('restart-btn').addEventListener(evt, e => { e.preventDefault(); startGame(); });
+    document.getElementById('resume-btn').addEventListener(evt, e => { e.preventDefault(); togglePause(); });
+  });
 
   // Prevent scroll on arrow keys
   window.addEventListener('keydown', e => {
