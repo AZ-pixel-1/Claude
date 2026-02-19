@@ -224,8 +224,13 @@
     [[7,7,0],[0,7,7],[0,0,0]],                   // Z
   ];
 
-  // Points for 1,2,3,4 lines (NES scoring * level)
-  const LINE_POINTS = [0, 100, 300, 500, 800];
+  // Points per line = 10 * 2^(level-1). Multiply by number of lines cleared.
+  function pointsPerLine(level) {
+    return 10 * Math.pow(2, level - 1);
+  }
+
+  // Lines needed to advance to next level
+  const LINES_PER_LEVEL = 15;
 
   // Speed table (ms per drop) per level
   function getSpeed(level) {
@@ -249,6 +254,7 @@
 
   // --- Game state ---
   let board, piece, nextPiece, score, lines, level, gameOver, paused, dropInterval, lastDrop, animFrameId;
+  let pieceHistory = []; // tracks recent piece types for repeat limiting
 
   // --- Board helpers ---
   function createBoard() {
@@ -257,6 +263,30 @@
 
   function randomType() {
     return Math.floor(Math.random() * 7) + 1;
+  }
+
+  // Generate next piece type respecting repeat limits based on level
+  function generatePieceType() {
+    const maxRepeat = (level >= 4) ? 3 : 2;
+    // Count how many consecutive times the last type appeared
+    let consecutiveCount = 0;
+    let lastType = pieceHistory.length > 0 ? pieceHistory[pieceHistory.length - 1] : null;
+    for (let i = pieceHistory.length - 1; i >= 0; i--) {
+      if (pieceHistory[i] === lastType) consecutiveCount++;
+      else break;
+    }
+
+    let type;
+    if (consecutiveCount >= maxRepeat && lastType !== null) {
+      // Must pick a different type
+      do { type = randomType(); } while (type === lastType);
+    } else {
+      type = randomType();
+    }
+    pieceHistory.push(type);
+    // Keep history short (only need last few entries)
+    if (pieceHistory.length > 5) pieceHistory.shift();
+    return type;
   }
 
   function createPiece(type) {
@@ -310,8 +340,8 @@
     }
     if (cleared > 0) {
       lines += cleared;
-      score += LINE_POINTS[cleared] * level;
-      const newLevel = Math.floor(lines / 10) + 1;
+      score += cleared * pointsPerLine(level);
+      const newLevel = Math.floor(lines / LINES_PER_LEVEL) + 1;
       if (newLevel !== level) {
         level = newLevel;
         dropInterval = getSpeed(level - 1);
@@ -322,7 +352,7 @@
 
   function spawn() {
     piece = createPiece(nextPiece);
-    nextPiece = randomType();
+    nextPiece = generatePieceType();
     drawNext();
     if (!valid(piece.shape, piece.x, piece.y)) {
       gameOver = true;
@@ -459,7 +489,8 @@
     gameOver = false; paused = false;
     dropInterval = getSpeed(0);
     lastDrop = performance.now();
-    nextPiece = randomType();
+    pieceHistory = [];
+    nextPiece = generatePieceType();
     spawn();
     updateUI();
     draw();
