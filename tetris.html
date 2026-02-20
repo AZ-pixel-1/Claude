@@ -8,14 +8,16 @@
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
   body {
-    background: #1a1a2e;
+    background: var(--body-bg, #2a2a3d);
     display: flex;
+    flex-direction: column;
     justify-content: center;
     align-items: center;
     min-height: 100vh;
     font-family: 'Courier New', monospace;
-    color: #e0e0e0;
+    color: var(--text, #d8d8e8);
     overflow: hidden;
+    transition: background 0.4s, color 0.4s;
   }
 
   .game-wrapper {
@@ -33,25 +35,28 @@
   }
 
   .panel-box {
-    background: #16213e;
-    border: 2px solid #0f3460;
+    background: var(--panel-bg, #363650);
+    border: 2px solid var(--panel-border, #4a4a6a);
     border-radius: 8px;
     padding: 12px;
     text-align: center;
+    transition: background 0.4s, border-color 0.4s;
   }
 
   .panel-box h3 {
     font-size: 12px;
     text-transform: uppercase;
     letter-spacing: 2px;
-    color: #e94560;
+    color: var(--accent, #8b7fc7);
     margin-bottom: 8px;
+    transition: color 0.4s;
   }
 
   .panel-box .value {
     font-size: 22px;
     font-weight: bold;
-    color: #fff;
+    color: var(--text-bright, #fff);
+    transition: color 0.4s;
   }
 
   #next-canvas {
@@ -60,11 +65,12 @@
   }
 
   .board-container {
-    background: #0a0a1a;
-    border: 3px solid #0f3460;
+    background: var(--board-bg, #1e1e30);
+    border: 3px solid var(--board-border, #4a4a6a);
     border-radius: 8px;
     padding: 4px;
-    box-shadow: 0 0 30px rgba(15, 52, 96, 0.5);
+    box-shadow: 0 0 30px var(--board-shadow, rgba(74, 74, 106, 0.5));
+    transition: background 0.4s, border-color 0.4s, box-shadow 0.4s;
   }
 
   #board {
@@ -87,15 +93,17 @@
 
   .overlay h1 {
     font-size: 48px;
-    color: #e94560;
+    color: var(--accent, #8b7fc7);
     margin-bottom: 16px;
-    text-shadow: 0 0 20px rgba(233, 69, 96, 0.6);
+    text-shadow: 0 0 20px var(--accent-glow, rgba(139, 127, 199, 0.6));
+    transition: color 0.4s;
   }
 
   .overlay h2 {
     font-size: 28px;
-    color: #e94560;
+    color: var(--accent, #8b7fc7);
     margin-bottom: 12px;
+    transition: color 0.4s;
   }
 
   .overlay p {
@@ -116,7 +124,7 @@
     font-size: 20px;
     font-family: 'Courier New', monospace;
     font-weight: bold;
-    background: #e94560;
+    background: var(--accent, #8b7fc7);
     color: #fff;
     border: none;
     border-radius: 8px;
@@ -124,9 +132,10 @@
     text-transform: uppercase;
     letter-spacing: 2px;
     -webkit-tap-highlight-color: transparent;
+    transition: background 0.3s;
   }
 
-  .btn:hover { background: #c73652; }
+  .btn:hover { background: var(--accent-hover, #7a6db5); }
   .btn { touch-action: manipulation; }
   .btn:active { transform: scale(0.96); }
 
@@ -137,10 +146,40 @@
     letter-spacing: 1px;
   }
 
+  .theme-bar {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 12px;
+    padding: 0 20px 20px;
+  }
+
+  .theme-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: 3px solid rgba(255,255,255,0.25);
+    cursor: pointer;
+    transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    padding: 0;
+    outline: none;
+  }
+
+  .theme-btn:hover { transform: scale(1.1); }
+
+  .theme-btn.active {
+    border-color: #fff;
+    box-shadow: 0 0 10px rgba(255,255,255,0.4);
+    transform: scale(1.15);
+  }
+
   @media (max-width: 600px) {
     .game-wrapper { gap: 12px; padding: 10px; }
     .side-panel { min-width: 100px; }
     .panel-box .value { font-size: 18px; }
+    .theme-btn { width: 30px; height: 30px; }
   }
 </style>
 </head>
@@ -193,6 +232,9 @@
   </div>
 </div>
 
+<!-- Theme switcher -->
+<div class="theme-bar" id="theme-bar"></div>
+
 
 <script>
 (() => {
@@ -201,16 +243,58 @@
   const ROWS = 20;
   const BLOCK = 30;
   const NEXT_BLOCK = 20;
-  const COLORS = [
-    null,
-    '#00f0f0', // I - cyan
-    '#0000f0', // J - blue
-    '#f0a000', // L - orange
-    '#f0f000', // O - yellow
-    '#00f000', // S - green
-    '#a000f0', // T - purple
-    '#f00000', // Z - red
+
+  // --- Color Themes (2 darker, 3 brighter - one pink) ---
+  const THEMES = [
+    {
+      name: 'Midnight Mist',
+      bodyBg: '#2a2a3d', panelBg: '#363650', panelBorder: '#4a4a6a',
+      boardBg: '#1e1e30', boardBorder: '#4a4a6a', boardShadow: 'rgba(74,74,106,0.5)',
+      accent: '#8b7fc7', accentHover: '#7a6db5', accentGlow: 'rgba(139,127,199,0.6)',
+      text: '#d8d8e8', textBright: '#fff', gridLine: 'rgba(255,255,255,0.04)',
+      swatch: '#8b7fc7',
+      pieces: [null,'#7ec8c8','#7e8ec8','#c8a87e','#c8c87e','#7ec87e','#a87ec8','#c87e7e']
+    },
+    {
+      name: 'Moss Shadow',
+      bodyBg: '#2a302a', panelBg: '#354035', panelBorder: '#4a5a4a',
+      boardBg: '#1e241e', boardBorder: '#4a5a4a', boardShadow: 'rgba(74,106,74,0.5)',
+      accent: '#7faa7f', accentHover: '#6d956d', accentGlow: 'rgba(127,170,127,0.6)',
+      text: '#d0d8d0', textBright: '#fff', gridLine: 'rgba(255,255,255,0.04)',
+      swatch: '#7faa7f',
+      pieces: [null,'#82b8a8','#7898a8','#c0a478','#a8a870','#80a880','#9880a8','#b08070']
+    },
+    {
+      name: 'Warm Sand',
+      bodyBg: '#f0e6d8', panelBg: '#e8dcc8', panelBorder: '#d0c0a8',
+      boardBg: '#f8f2e8', boardBorder: '#d0c0a8', boardShadow: 'rgba(180,150,110,0.3)',
+      accent: '#c07850', accentHover: '#a86840', accentGlow: 'rgba(192,120,80,0.5)',
+      text: '#5a4a3a', textBright: '#3a2a1a', gridLine: 'rgba(0,0,0,0.05)',
+      swatch: '#c07850',
+      pieces: [null,'#70bab5','#8098c0','#d8a068','#c8b860','#78b878','#a880c0','#d08070']
+    },
+    {
+      name: 'Pink Blossom',
+      bodyBg: '#f8e0e8', panelBg: '#f0d0d8', panelBorder: '#e0b0c0',
+      boardBg: '#fef0f3', boardBorder: '#e0b0c0', boardShadow: 'rgba(220,140,170,0.3)',
+      accent: '#d07090', accentHover: '#b86080', accentGlow: 'rgba(208,112,144,0.5)',
+      text: '#6a4050', textBright: '#4a2030', gridLine: 'rgba(0,0,0,0.05)',
+      swatch: '#e888a8',
+      pieces: [null,'#80c0b8','#a098c8','#e0a0a8','#d8b890','#a0c8a0','#c898c0','#d88890']
+    },
+    {
+      name: 'Sky Breeze',
+      bodyBg: '#e0eef8', panelBg: '#d0e4f0', panelBorder: '#a8c8e0',
+      boardBg: '#f0f6fc', boardBorder: '#a8c8e0', boardShadow: 'rgba(110,160,200,0.3)',
+      accent: '#5898c8', accentHover: '#4880b0', accentGlow: 'rgba(88,152,200,0.5)',
+      text: '#3a4a5a', textBright: '#1a2a3a', gridLine: 'rgba(0,0,0,0.05)',
+      swatch: '#5898c8',
+      pieces: [null,'#68b8d8','#8898c0','#d8a868','#c8c068','#70c070','#a880c0','#d08080']
+    }
   ];
+
+  let COLORS = [...THEMES[0].pieces];
+  let currentThemeIndex = 0;
 
   // Classic tetromino shapes
   const SHAPES = [
@@ -224,12 +308,11 @@
     [[7,7,0],[0,7,7],[0,0,0]],                   // Z
   ];
 
-  // Points per line = 10 * 2^(level-1). Multiply by number of lines cleared.
-  function pointsPerLine(level) {
-    return 10 * Math.pow(2, level - 1);
+  // Points per line = 10 * 2^(level-1)
+  function pointsPerLine(lvl) {
+    return 10 * Math.pow(2, lvl - 1);
   }
 
-  // Lines needed to advance to next level
   const LINES_PER_LEVEL = 15;
 
   // Speed table (ms per drop) per level
@@ -251,10 +334,51 @@
   const pauseScreen = document.getElementById('pause-screen');
   const finalScoreEl = document.getElementById('final-score');
   const pauseBtn = document.getElementById('pause-btn');
+  const themeBar = document.getElementById('theme-bar');
 
   // --- Game state ---
   let board, piece, nextPiece, score, lines, level, gameOver, paused, dropInterval, lastDrop, animFrameId;
-  let pieceHistory = []; // tracks recent piece types for repeat limiting
+  let pieceHistory = [];
+  let bestMove = null; // AI recommended placement for levels 1-3
+
+  // --- Theme system ---
+  function applyTheme(index) {
+    currentThemeIndex = index;
+    const t = THEMES[index];
+    const root = document.documentElement;
+    root.style.setProperty('--body-bg', t.bodyBg);
+    root.style.setProperty('--panel-bg', t.panelBg);
+    root.style.setProperty('--panel-border', t.panelBorder);
+    root.style.setProperty('--board-bg', t.boardBg);
+    root.style.setProperty('--board-border', t.boardBorder);
+    root.style.setProperty('--board-shadow', t.boardShadow);
+    root.style.setProperty('--accent', t.accent);
+    root.style.setProperty('--accent-hover', t.accentHover);
+    root.style.setProperty('--accent-glow', t.accentGlow);
+    root.style.setProperty('--text', t.text);
+    root.style.setProperty('--text-bright', t.textBright);
+
+    for (let i = 0; i < t.pieces.length; i++) COLORS[i] = t.pieces[i];
+
+    themeBar.querySelectorAll('.theme-btn').forEach((btn, i) => {
+      btn.classList.toggle('active', i === index);
+    });
+
+    if (board) { draw(); drawNext(); }
+  }
+
+  function initThemeButtons() {
+    THEMES.forEach((t, i) => {
+      const btn = document.createElement('button');
+      btn.className = 'theme-btn' + (i === 0 ? ' active' : '');
+      btn.style.background = t.swatch;
+      btn.title = t.name;
+      ['click', 'touchend'].forEach(evt => {
+        btn.addEventListener(evt, e => { e.preventDefault(); e.stopPropagation(); applyTheme(i); });
+      });
+      themeBar.appendChild(btn);
+    });
+  }
 
   // --- Board helpers ---
   function createBoard() {
@@ -265,26 +389,21 @@
     return Math.floor(Math.random() * 7) + 1;
   }
 
-  // Generate next piece type respecting repeat limits based on level
   function generatePieceType() {
     const maxRepeat = (level >= 4) ? 3 : 2;
-    // Count how many consecutive times the last type appeared
     let consecutiveCount = 0;
     let lastType = pieceHistory.length > 0 ? pieceHistory[pieceHistory.length - 1] : null;
     for (let i = pieceHistory.length - 1; i >= 0; i--) {
       if (pieceHistory[i] === lastType) consecutiveCount++;
       else break;
     }
-
     let type;
     if (consecutiveCount >= maxRepeat && lastType !== null) {
-      // Must pick a different type
       do { type = randomType(); } while (type === lastType);
     } else {
       type = randomType();
     }
     pieceHistory.push(type);
-    // Keep history short (only need last few entries)
     if (pieceHistory.length > 5) pieceHistory.shift();
     return type;
   }
@@ -292,8 +411,7 @@
   function createPiece(type) {
     const shape = SHAPES[type].map(r => [...r]);
     return {
-      type,
-      shape,
+      type, shape,
       x: Math.floor((COLS - shape[0].length) / 2),
       y: 0,
     };
@@ -319,6 +437,76 @@
     return true;
   }
 
+  // --- AI Recommendation Engine (levels 1-3) ---
+  function evaluatePlacement(shape, px, py) {
+    const temp = board.map(r => [...r]);
+    for (let r = 0; r < shape.length; r++)
+      for (let c = 0; c < shape[r].length; c++)
+        if (shape[r][c] && py + r >= 0 && py + r < ROWS && px + c >= 0 && px + c < COLS)
+          temp[py + r][px + c] = shape[r][c];
+
+    // Complete lines
+    let linesCleared = 0;
+    for (let r = 0; r < ROWS; r++)
+      if (temp[r].every(v => v !== 0)) linesCleared++;
+
+    // Holes (empty cell with a filled cell above it in the same column)
+    let holes = 0;
+    for (let c = 0; c < COLS; c++) {
+      let blocked = false;
+      for (let r = 0; r < ROWS; r++) {
+        if (temp[r][c]) blocked = true;
+        else if (blocked) holes++;
+      }
+    }
+
+    // Column heights and aggregate height
+    const heights = [];
+    let aggregateHeight = 0;
+    for (let c = 0; c < COLS; c++) {
+      let h = 0;
+      for (let r = 0; r < ROWS; r++) {
+        if (temp[r][c]) { h = ROWS - r; break; }
+      }
+      heights.push(h);
+      aggregateHeight += h;
+    }
+
+    // Bumpiness
+    let bumpiness = 0;
+    for (let i = 0; i < heights.length - 1; i++)
+      bumpiness += Math.abs(heights[i] - heights[i + 1]);
+
+    return linesCleared * 800 - holes * 500 - aggregateHeight * 5 - bumpiness * 15;
+  }
+
+  function findBestMove() {
+    if (!piece) return null;
+    let bestScore = -Infinity;
+    let best = null;
+    let currentShape = piece.shape.map(r => [...r]);
+
+    for (let rot = 0; rot < 4; rot++) {
+      for (let x = -2; x < COLS + 2; x++) {
+        // Drop piece to lowest valid position
+        let y = 0;
+        while (valid(currentShape, x, y)) y++;
+        y--;
+        if (y < 0) continue;
+        if (!valid(currentShape, x, y)) continue;
+
+        const s = evaluatePlacement(currentShape, x, y);
+        if (s > bestScore) {
+          bestScore = s;
+          best = { shape: currentShape.map(r => [...r]), x, y };
+        }
+      }
+      currentShape = rotate(currentShape);
+    }
+    return best;
+  }
+
+  // --- Core game ---
   function lock() {
     const { shape, x, y, type } = piece;
     for (let r = 0; r < shape.length; r++)
@@ -335,7 +523,7 @@
         board.splice(r, 1);
         board.unshift(new Array(COLS).fill(0));
         cleared++;
-        r++; // re-check this row
+        r++;
       }
     }
     if (cleared > 0) {
@@ -357,7 +545,9 @@
     if (!valid(piece.shape, piece.x, piece.y)) {
       gameOver = true;
       endGame();
+      return;
     }
+    bestMove = (level <= 3) ? findBestMove() : null;
   }
 
   // --- Drawing ---
@@ -365,51 +555,65 @@
     const color = COLORS[type];
     context.fillStyle = color;
     context.fillRect(x * size, y * size, size, size);
-    // highlight
     context.fillStyle = 'rgba(255,255,255,0.18)';
     context.fillRect(x * size, y * size, size, 2);
     context.fillRect(x * size, y * size, 2, size);
-    // shadow
     context.fillStyle = 'rgba(0,0,0,0.25)';
     context.fillRect(x * size + size - 2, y * size, 2, size);
     context.fillRect(x * size, y * size + size - 2, size, 2);
-    // grid line
     context.strokeStyle = 'rgba(0,0,0,0.3)';
     context.strokeRect(x * size, y * size, size, size);
   }
 
   function drawGhost() {
-    let gy = piece.y;
-    while (valid(piece.shape, piece.x, gy + 1)) gy++;
-    if (gy === piece.y) return;
-    const { shape, x, type } = piece;
-    ctx.globalAlpha = 0.2;
-    for (let r = 0; r < shape.length; r++)
-      for (let c = 0; c < shape[r].length; c++)
-        if (shape[r][c] && gy + r >= 0)
-          drawBlock(ctx, x + c, gy + r, type, BLOCK);
-    ctx.globalAlpha = 1;
+    if (level <= 3 && bestMove) {
+      // AI recommendation: pulsing accent-colored ghost at best position
+      const { shape, x, y } = bestMove;
+      const t = THEMES[currentThemeIndex];
+      const pulse = 0.18 + 0.08 * Math.sin(performance.now() / 400);
+      ctx.globalAlpha = pulse;
+      for (let r = 0; r < shape.length; r++)
+        for (let c = 0; c < shape[r].length; c++)
+          if (shape[r][c] && y + r >= 0) {
+            ctx.fillStyle = t.accent;
+            ctx.fillRect((x + c) * BLOCK, (y + r) * BLOCK, BLOCK, BLOCK);
+            ctx.strokeStyle = t.accent;
+            ctx.lineWidth = 2;
+            ctx.strokeRect((x + c) * BLOCK + 1, (y + r) * BLOCK + 1, BLOCK - 2, BLOCK - 2);
+            ctx.lineWidth = 1;
+          }
+      ctx.globalAlpha = 1;
+    } else {
+      // Normal drop-shadow ghost (levels 4+)
+      let gy = piece.y;
+      while (valid(piece.shape, piece.x, gy + 1)) gy++;
+      if (gy === piece.y) return;
+      const { shape, x, type } = piece;
+      ctx.globalAlpha = 0.2;
+      for (let r = 0; r < shape.length; r++)
+        for (let c = 0; c < shape[r].length; c++)
+          if (shape[r][c] && gy + r >= 0)
+            drawBlock(ctx, x + c, gy + r, type, BLOCK);
+      ctx.globalAlpha = 1;
+    }
   }
 
   function draw() {
-    ctx.fillStyle = '#0a0a1a';
+    const t = THEMES[currentThemeIndex];
+    ctx.fillStyle = t.boardBg;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Draw grid
-    ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+    ctx.strokeStyle = t.gridLine;
     for (let r = 0; r < ROWS; r++)
       for (let c = 0; c < COLS; c++)
         ctx.strokeRect(c * BLOCK, r * BLOCK, BLOCK, BLOCK);
 
-    // Board
     for (let r = 0; r < ROWS; r++)
       for (let c = 0; c < COLS; c++)
         if (board[r][c]) drawBlock(ctx, c, r, board[r][c], BLOCK);
 
-    // Ghost
     if (piece) drawGhost();
 
-    // Active piece
     if (piece) {
       const { shape, x, y, type } = piece;
       for (let r = 0; r < shape.length; r++)
@@ -420,7 +624,8 @@
   }
 
   function drawNext() {
-    nextCtx.fillStyle = '#16213e';
+    const t = THEMES[currentThemeIndex];
+    nextCtx.fillStyle = t.panelBg;
     nextCtx.fillRect(0, 0, nextCanvas.width, nextCanvas.height);
     const shape = SHAPES[nextPiece];
     const offX = Math.floor((5 - shape[0].length) / 2);
@@ -459,7 +664,6 @@
   }
   function rotatePiece() {
     const rotated = rotate(piece.shape);
-    // Wall kick: try 0, -1, +1, -2, +2
     for (const kick of [0, -1, 1, -2, 2]) {
       if (valid(rotated, piece.x + kick, piece.y)) {
         piece.shape = rotated;
@@ -490,6 +694,7 @@
     dropInterval = getSpeed(0);
     lastDrop = performance.now();
     pieceHistory = [];
+    bestMove = null;
     nextPiece = generatePieceType();
     spawn();
     updateUI();
@@ -536,7 +741,6 @@
   });
 
   // --- Buttons ---
-  // Use both click and touchend for reliable iPad support
   ['click', 'touchend'].forEach(evt => {
     document.getElementById('start-btn').addEventListener(evt, e => { e.preventDefault(); startGame(); });
     document.getElementById('restart-btn').addEventListener(evt, e => { e.preventDefault(); startGame(); });
@@ -544,12 +748,15 @@
     pauseBtn.addEventListener(evt, e => { e.preventDefault(); togglePause(); });
   });
 
-  // Prevent scroll on arrow keys
   window.addEventListener('keydown', e => {
     if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].includes(e.key)) {
       e.preventDefault();
     }
   });
+
+  // --- Initialize ---
+  initThemeButtons();
+  applyTheme(0);
 })();
 </script>
 </body>
