@@ -244,34 +244,47 @@ else:
         "NAV per ADR": nav_per_adr,
     }).dropna()
 
+# ── Compute discount % ───────────────────────────────────────────────────
+df["Discount %"] = (1 - df["Exor ADR Price"] / df["NAV per ADR"]) * 100
+
 # ── Print summary ────────────────────────────────────────────────────────
 print(f"Data points: {len(df)} trading days")
 print(f"Latest Exor ADR Price : ${df['Exor ADR Price'].iloc[-1]:,.2f}")
 print(f"Latest NAV per ADR    : ${df['NAV per ADR'].iloc[-1]:,.2f}")
-discount = (1 - df["Exor ADR Price"].iloc[-1] / df["NAV per ADR"].iloc[-1]) * 100
-print(f"Latest discount       : {discount:.1f}%")
+print(f"Latest discount       : {df['Discount %'].iloc[-1]:.1f}%")
 
 # ── Plot ─────────────────────────────────────────────────────────────────
-fig, ax = plt.subplots(figsize=(14, 7))
+fig, ax1 = plt.subplots(figsize=(14, 7))
 
-ax.plot(df.index, df["Exor ADR Price"], color="#1f77b4", linewidth=1.6,
-        label="Exor ADR Price (USD)")
-ax.plot(df.index, df["NAV per ADR"],    color="#d62728", linewidth=1.6,
-        label="NAV per ADR (USD)")
+# Left Y-axis: USD prices
+ax1.plot(df.index, df["Exor ADR Price"], color="#1f77b4", linewidth=1.6,
+         label="Exor ADR Price (USD)")
+ax1.plot(df.index, df["NAV per ADR"],    color="#d62728", linewidth=1.6,
+         label="NAV per ADR (USD)")
+ax1.fill_between(df.index, df["Exor ADR Price"], df["NAV per ADR"],
+                 where=df["NAV per ADR"] > df["Exor ADR Price"],
+                 alpha=0.08, color="red")
 
-# Shade the discount area
-ax.fill_between(df.index, df["Exor ADR Price"], df["NAV per ADR"],
-                where=df["NAV per ADR"] > df["Exor ADR Price"],
-                alpha=0.10, color="red", label="Discount")
-
-ax.set_ylabel("USD", fontsize=13)
-ax.set_title("Exor: ADR Price vs NAV per ADR  (Feb 2024 \u2013 Feb 2026)",
-             fontsize=15, fontweight="bold")
-ax.legend(loc="upper left", fontsize=11)
-ax.grid(True, alpha=0.3)
-ax.xaxis.set_major_formatter(mdates.DateFormatter("%b %Y"))
-ax.xaxis.set_major_locator(mdates.MonthLocator(interval=3))
+ax1.set_ylabel("USD", fontsize=13)
+ax1.set_title("Exor: ADR Price vs NAV per ADR  (Feb 2024 \u2013 Feb 2026)",
+              fontsize=15, fontweight="bold")
+ax1.grid(True, alpha=0.3)
+ax1.xaxis.set_major_formatter(mdates.DateFormatter("%b %Y"))
+ax1.xaxis.set_major_locator(mdates.MonthLocator(interval=3))
 plt.xticks(rotation=45)
+
+# Right Y-axis: Discount %
+ax2 = ax1.twinx()
+ax2.plot(df.index, df["Discount %"], color="#2ca02c", linewidth=1.4,
+         linestyle="--", alpha=0.85, label="Discount to NAV (%)")
+ax2.set_ylabel("Discount to NAV (%)", fontsize=13, color="#2ca02c")
+ax2.tick_params(axis="y", labelcolor="#2ca02c")
+
+# Combined legend
+lines1, labels1 = ax1.get_legend_handles_labels()
+lines2, labels2 = ax2.get_legend_handles_labels()
+ax1.legend(lines1 + lines2, labels1 + labels2, loc="upper left", fontsize=11)
+
 plt.tight_layout()
 
 out_path = "exor_holdings_chart.png"
