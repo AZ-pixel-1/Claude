@@ -290,3 +290,50 @@ plt.tight_layout()
 out_path = "exor_holdings_chart.png"
 fig.savefig(out_path, dpi=150)
 print(f"\nChart saved \u2192 {out_path}")
+
+# ── Weekly chart (last 12 months) ────────────────────────────────────────
+cutoff = df.index[-1] - pd.DateOffset(years=1)
+df_12m = df.loc[df.index >= cutoff].copy()
+
+# Resample to weekly (Friday close)
+df_weekly = df_12m.resample("W-FRI").last().dropna()
+
+print(f"\nWeekly chart: {len(df_weekly)} weeks from {df_weekly.index[0]:%Y-%m-%d} to {df_weekly.index[-1]:%Y-%m-%d}")
+
+fig2, ax1w = plt.subplots(figsize=(14, 7))
+
+# Left Y-axis: USD prices
+ax1w.plot(df_weekly.index, df_weekly["Exor ADR Price"], color="#1f77b4",
+          linewidth=1.8, marker="o", markersize=4, label="Exor ADR Price (USD)")
+ax1w.plot(df_weekly.index, df_weekly["NAV per ADR"], color="#d62728",
+          linewidth=1.8, marker="o", markersize=4, label="NAV per ADR (USD)")
+ax1w.fill_between(df_weekly.index, df_weekly["Exor ADR Price"], df_weekly["NAV per ADR"],
+                  where=df_weekly["NAV per ADR"] > df_weekly["Exor ADR Price"],
+                  alpha=0.08, color="red")
+
+ax1w.set_ylabel("USD", fontsize=13)
+ax1w.set_title("Exor: ADR Price vs NAV per ADR \u2014 Weekly  (Feb 2025 \u2013 Feb 2026)",
+               fontsize=15, fontweight="bold")
+ax1w.grid(True, alpha=0.3)
+ax1w.xaxis.set_major_formatter(mdates.DateFormatter("%b %Y"))
+ax1w.xaxis.set_major_locator(mdates.MonthLocator(interval=1))
+plt.sca(ax1w)
+plt.xticks(rotation=45)
+
+# Right Y-axis: Discount %
+ax2w = ax1w.twinx()
+ax2w.plot(df_weekly.index, df_weekly["Discount %"], color="#2ca02c", linewidth=1.6,
+          linestyle="--", marker="s", markersize=4, alpha=0.85, label="Discount to NAV (%)")
+ax2w.set_ylabel("Discount to NAV (%)", fontsize=13, color="#2ca02c")
+ax2w.tick_params(axis="y", labelcolor="#2ca02c")
+
+# Combined legend
+lines1w, labels1w = ax1w.get_legend_handles_labels()
+lines2w, labels2w = ax2w.get_legend_handles_labels()
+ax1w.legend(lines1w + lines2w, labels1w + labels2w, loc="upper left", fontsize=11)
+
+plt.tight_layout()
+
+out_path_weekly = "exor_holdings_chart_weekly.png"
+fig2.savefig(out_path_weekly, dpi=150)
+print(f"Chart saved \u2192 {out_path_weekly}")
