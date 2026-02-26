@@ -337,3 +337,47 @@ plt.tight_layout()
 out_path_weekly = "exor_holdings_chart_weekly.png"
 fig2.savefig(out_path_weekly, dpi=150)
 print(f"Chart saved \u2192 {out_path_weekly}")
+
+# ── Daily chart (last 3 months) ──────────────────────────────────────────
+cutoff_3m = df.index[-1] - pd.DateOffset(months=3)
+df_3m = df.loc[df.index >= cutoff_3m].copy()
+
+print(f"\nDaily 3-month chart: {len(df_3m)} trading days from {df_3m.index[0]:%Y-%m-%d} to {df_3m.index[-1]:%Y-%m-%d}")
+
+fig3, ax1d = plt.subplots(figsize=(14, 7))
+
+# Left Y-axis: USD prices
+ax1d.plot(df_3m.index, df_3m["Exor ADR Price"], color="#1f77b4",
+          linewidth=1.8, label="Exor ADR Price (USD)")
+ax1d.plot(df_3m.index, df_3m["NAV per ADR"], color="#d62728",
+          linewidth=1.8, label="NAV per ADR (USD)")
+ax1d.fill_between(df_3m.index, df_3m["Exor ADR Price"], df_3m["NAV per ADR"],
+                  where=df_3m["NAV per ADR"] > df_3m["Exor ADR Price"],
+                  alpha=0.08, color="red")
+
+ax1d.set_ylabel("USD", fontsize=13)
+ax1d.set_title("Exor: ADR Price vs NAV per ADR \u2014 Daily  (Nov 2025 \u2013 Feb 2026)",
+               fontsize=15, fontweight="bold")
+ax1d.grid(True, alpha=0.3)
+ax1d.xaxis.set_major_formatter(mdates.DateFormatter("%d %b"))
+ax1d.xaxis.set_major_locator(mdates.WeekdayLocator(byweekday=0, interval=2))
+plt.sca(ax1d)
+plt.xticks(rotation=45)
+
+# Right Y-axis: Discount %
+ax2d = ax1d.twinx()
+ax2d.plot(df_3m.index, df_3m["Discount %"], color="#2ca02c", linewidth=1.4,
+          linestyle="--", alpha=0.85, label="Discount to NAV (%)")
+ax2d.set_ylabel("Discount to NAV (%)", fontsize=13, color="#2ca02c")
+ax2d.tick_params(axis="y", labelcolor="#2ca02c")
+
+# Combined legend
+lines1d, labels1d = ax1d.get_legend_handles_labels()
+lines2d, labels2d = ax2d.get_legend_handles_labels()
+ax1d.legend(lines1d + lines2d, labels1d + labels2d, loc="upper left", fontsize=11)
+
+plt.tight_layout()
+
+out_path_daily = "exor_holdings_chart_daily_3m.png"
+fig3.savefig(out_path_daily, dpi=150)
+print(f"Chart saved \u2192 {out_path_daily}")
