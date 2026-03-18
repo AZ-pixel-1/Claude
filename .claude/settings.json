@@ -11,9 +11,9 @@
                 "hooks": [
                     {
                         "type": "command",
-                        "command": "python3 fetch_ibkr_trades.py 2>/dev/null || true",
-                        "timeout": 120,
-                        "statusMessage": "Fetching IBKR trades..."
+                        "command": "python3 ibkr_live.py 2>/dev/null || true",
+                        "timeout": 30,
+                        "statusMessage": "Connecting to IBKR TWS..."
                     }
                 ]
             }
