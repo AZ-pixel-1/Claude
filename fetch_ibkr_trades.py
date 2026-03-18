@@ -70,17 +70,53 @@ def download_flex_report(token: str, reference_code: str) -> str:
     raise RuntimeError(f"Report not ready after {MAX_POLL_ATTEMPTS} attempts")
 
 
+def dump_xml_structure(xml_data: str):
+    """Print the XML element tree structure for debugging."""
+    root = ET.fromstring(xml_data)
+    print("\n  XML structure:")
+
+    def walk(elem, depth=0):
+        attrs = f" ({len(elem.attrib)} attrs)" if elem.attrib else ""
+        children = len(list(elem))
+        child_info = f" [{children} children]" if children else ""
+        print(f"    {'  ' * depth}<{elem.tag}>{attrs}{child_info}")
+        if depth < 4:  # limit depth
+            for child in elem:
+                walk(child, depth + 1)
+
+    walk(root)
+    print()
+
+
 def parse_trades(xml_data: str) -> list[dict]:
     """Parse trade records from Flex report XML."""
     root = ET.fromstring(xml_data)
     trades = []
 
-    # Flex reports nest trades under FlexStatements/FlexStatement/Trades/Trade
-    for trade_elem in root.iter("Trade"):
-        trade = {}
-        for key, value in trade_elem.attrib.items():
-            trade[key] = value
-        trades.append(trade)
+    # Try multiple element names that IBKR uses for trade data
+    trade_tags = ["Trade", "Order", "Execution", "TradeConfirm",
+                  "UnbundledCommissionDetail", "TransactionTax"]
+
+    for tag in trade_tags:
+        for elem in root.iter(tag):
+            trade = {"_source_tag": tag}
+            for key, value in elem.attrib.items():
+                trade[key] = value
+            trades.append(trade)
+        if trades:
+            print(f"  Found trades in <{tag}> elements")
+            break
+
+    # If nothing found, try grabbing any element with trade-like attributes
+    if not trades:
+        for elem in root.iter():
+            if elem.attrib.get("symbol") or elem.attrib.get("tradeDate"):
+                trade = {"_source_tag": elem.tag}
+                for key, value in elem.attrib.items():
+                    trade[key] = value
+                trades.append(trade)
+        if trades:
+            print(f"  Found trades via attribute search in <{trades[0]['_source_tag']}> elements")
 
     return trades
 
@@ -174,19 +210,23 @@ def main():
     trades = parse_trades(xml_data)
     print(f"  Found {len(trades)} total trade(s) in report")
 
+    if not trades:
+        dump_xml_structure(xml_data)
+
     recent_trades = filter_last_month(trades)
     print(f"  {len(recent_trades)} trade(s) in the last 30 days")
     print()
 
-    if not recent_trades:
-        print("No trades found in the last 30 days.")
-        return
-
-    # Optional: save raw XML
+    # Always save raw XML for inspection
     output_file = "ibkr_trades_report.xml"
     with open(output_file, "w") as f:
         f.write(xml_data)
     print(f"Raw XML saved to {output_file}")
+
+    if not recent_trades:
+        print("No trades found in the last 30 days.")
+        print(f"Check {output_file} to inspect the raw report.")
+        return
     print()
 
     # Display trades
