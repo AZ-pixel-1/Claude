@@ -4,5 +4,19 @@
         "IBKR_FLEX_TOKEN": "517802877674467471771696",
         "IBKR_FLEX_QUERY_ID": "1437211",
         "IBKR_FLEX_QUERY_ID_2": "1437593"
+    },
+    "hooks": {
+        "SessionStart": [
+            {
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "python3 fetch_ibkr_trades.py 2>/dev/null || true",
+                        "timeout": 120,
+                        "statusMessage": "Fetching IBKR trades..."
+                    }
+                ]
+            }
+        ]
     }
 }
