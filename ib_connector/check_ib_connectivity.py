@@ -21,7 +21,7 @@ import requests
 # IBeam uses a self-signed cert — suppress warnings for localhost
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-BASE_URL = "https://localhost:5000/v1/api"
+BASE_URL = "https://localhost:5500/v1/api"
 TIMEOUT = 15
 
 
@@ -230,6 +230,45 @@ def check_server_time() -> bool:
     return True
 
 
+def check_trading_blocked() -> bool:
+    """Verify that trading endpoints are blocked by the read-only proxy."""
+    print("\n── Read-Only Verification ──")
+    all_blocked = True
+
+    blocked_endpoints = [
+        ("POST", "/iserver/account/orders", "Place orders"),
+        ("POST", "/iserver/account/DU0000000/orders", "Place account orders"),
+        ("DELETE", "/iserver/account/DU0000000/order/12345", "Cancel order"),
+        ("POST", "/iserver/reply/12345", "Confirm order"),
+    ]
+
+    for method, endpoint, desc in blocked_endpoints:
+        url = f"{BASE_URL}{endpoint}"
+        try:
+            if method == "POST":
+                resp = requests.post(url, json={}, verify=False, timeout=TIMEOUT)
+            elif method == "DELETE":
+                resp = requests.delete(url, verify=False, timeout=TIMEOUT)
+            else:
+                resp = requests.get(url, verify=False, timeout=TIMEOUT)
+
+            if resp.status_code == 403:
+                print(f"  [OK] BLOCKED: {desc} ({method} {endpoint})")
+            else:
+                print(f"  [FAIL] NOT BLOCKED: {desc} returned {resp.status_code}")
+                all_blocked = False
+        except requests.ConnectionError:
+            print(f"  [FAIL] Cannot connect to verify: {desc}")
+            all_blocked = False
+
+    if all_blocked:
+        print("  [OK] All trading endpoints are blocked")
+    else:
+        print("  [FAIL] Some trading endpoints are NOT blocked — check nginx config!")
+
+    return all_blocked
+
+
 # ─── Main ───────────────────────────────────────────────────────────────
 
 
@@ -263,6 +302,9 @@ def main():
     if args.quotes:
         ok = check_market_data(args.quotes)
         sys.exit(0 if ok else 1)
+
+    # Verify trading is blocked FIRST
+    check_trading_blocked()
 
     # Full connectivity check
     check_server_time()

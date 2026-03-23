@@ -1,40 +1,42 @@
 version: "3.8"
 
-# IBeam — Interactive Brokers Client Portal API (Paper Account)
-# Security: localhost-only binding, Docker secrets for credentials
+# ─────────────────────────────────────────────────────────────
+# IBeam — Interactive Brokers Client Portal API (LIVE, READ-ONLY)
+# ─────────────────────────────────────────────────────────────
+# Architecture:
+#   [You] → nginx (port 5500, READ-ONLY) → IBeam (port 5000, internal)
+#
+# The nginx proxy BLOCKS all trading/order endpoints.
+# Only market data, portfolio reads, and account info are allowed.
+# IBeam is NOT exposed to the host — only nginx is.
+# ─────────────────────────────────────────────────────────────
 
 services:
   ibeam:
     image: voyz/ibeam:latest
-    container_name: ibeam-paper
+    container_name: ibeam-live
     restart: unless-stopped
-    ports:
-      # IMPORTANT: bound to localhost only — not accessible from network
-      - "127.0.0.1:5000:5000"
+    # NO host port binding — only accessible via the read-only proxy
+    expose:
+      - "5000"
     environment:
-      # Account credentials (use .env file — NEVER commit this)
       IBEAM_ACCOUNT: ${IBEAM_ACCOUNT}
       IBEAM_PASSWORD: ${IBEAM_PASSWORD}
 
       # ── Gateway settings ──
-      # Paper trading port (5000 = paper, 5001 = live)
       IBEAM_GATEWAY_BASE_URL: "https://localhost:5000"
 
-      # Re-authenticate every 50 minutes (session expires ~60 min)
+      # Re-authenticate every 50 minutes
       IBEAM_MAINTENANCE_INTERVAL: 50
 
-      # Max consecutive failed logins before shutdown (prevents lockout)
+      # Max consecutive failed logins before shutdown
       IBEAM_MAX_FAILED_AUTH: 5
 
-      # Request retries and timeout
       IBEAM_REQUEST_RETRIES: 3
       IBEAM_REQUEST_TIMEOUT: 30
-
-      # Page load timeout for authentication
       IBEAM_PAGE_LOAD_TIMEOUT: 60
 
     volumes:
-      # Persist Gateway config across restarts
       - ibeam_inputs:/srv/ibeam/inputs
     healthcheck:
       test: ["CMD", "curl", "-kfs", "https://localhost:5000/v1/api/iserver/auth/status"]
@@ -43,5 +45,40 @@ services:
       retries: 3
       start_period: 60s
 
+  readonly-proxy:
+    image: nginx:alpine
+    container_name: ib-readonly-proxy
+    restart: unless-stopped
+    depends_on:
+      ibeam:
+        condition: service_healthy
+    ports:
+      # ONLY the read-only proxy is exposed, localhost only
+      - "127.0.0.1:5500:5500"
+    volumes:
+      - ./nginx-readonly.conf:/etc/nginx/nginx.conf:ro
+      - proxy_ssl:/etc/nginx/ssl
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        # Generate self-signed cert for the proxy
+        mkdir -p /etc/nginx/ssl
+        apk add --no-cache openssl > /dev/null 2>&1
+        openssl req -x509 -nodes -days 365 \
+          -newkey rsa:2048 \
+          -keyout /etc/nginx/ssl/proxy.key \
+          -out /etc/nginx/ssl/proxy.crt \
+          -subj "/CN=localhost" 2>/dev/null
+        echo "Read-only proxy starting on port 5500..."
+        echo "TRADING IS DISABLED — only read endpoints are allowed"
+        nginx -g 'daemon off;'
+    healthcheck:
+      test: ["CMD", "curl", "-kfs", "https://localhost:5500/v1/api/iserver/auth/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 90s
+
 volumes:
   ibeam_inputs:
+  proxy_ssl:
