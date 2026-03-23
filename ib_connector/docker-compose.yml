@@ -1,0 +1,47 @@
+version: "3.8"
+
+# IBeam — Interactive Brokers Client Portal API (Paper Account)
+# Security: localhost-only binding, Docker secrets for credentials
+
+services:
+  ibeam:
+    image: voyz/ibeam:latest
+    container_name: ibeam-paper
+    restart: unless-stopped
+    ports:
+      # IMPORTANT: bound to localhost only — not accessible from network
+      - "127.0.0.1:5000:5000"
+    environment:
+      # Account credentials (use .env file — NEVER commit this)
+      IBEAM_ACCOUNT: ${IBEAM_ACCOUNT}
+      IBEAM_PASSWORD: ${IBEAM_PASSWORD}
+
+      # ── Gateway settings ──
+      # Paper trading port (5000 = paper, 5001 = live)
+      IBEAM_GATEWAY_BASE_URL: "https://localhost:5000"
+
+      # Re-authenticate every 50 minutes (session expires ~60 min)
+      IBEAM_MAINTENANCE_INTERVAL: 50
+
+      # Max consecutive failed logins before shutdown (prevents lockout)
+      IBEAM_MAX_FAILED_AUTH: 5
+
+      # Request retries and timeout
+      IBEAM_REQUEST_RETRIES: 3
+      IBEAM_REQUEST_TIMEOUT: 30
+
+      # Page load timeout for authentication
+      IBEAM_PAGE_LOAD_TIMEOUT: 60
+
+    volumes:
+      # Persist Gateway config across restarts
+      - ibeam_inputs:/srv/ibeam/inputs
+    healthcheck:
+      test: ["CMD", "curl", "-kfs", "https://localhost:5000/v1/api/iserver/auth/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+volumes:
+  ibeam_inputs:

@@ -1,0 +1,5 @@
+# Never commit credentials
+.env
+
+# Docker volumes
+ibeam_inputs/
