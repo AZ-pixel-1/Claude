@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # ─────────────────────────────────────────────────────────────
 # IBeam Live Account Setup (READ-ONLY — No Trading)
+# Prompts for credentials each time — nothing stored on disk
 # ─────────────────────────────────────────────────────────────
 set -euo pipefail
 
@@ -16,45 +17,35 @@ echo "  │  TRADING IS DISABLED                             │"
 echo "  │  All order/trade endpoints are blocked by proxy  │"
 echo "  │  You can only read: market data, positions, etc  │"
 echo "  └──────────────────────────────────────────────────┘"
+echo ""
 
-# Step 1: Check .env
-if [ ! -f .env ]; then
-    echo ""
-    echo "  No .env file found. Creating from template..."
-    cp .env.example .env
-    echo ""
-    echo "  ┌─────────────────────────────────────────────────┐"
-    echo "  │  ACTION REQUIRED:                               │"
-    echo "  │                                                  │"
-    echo "  │  Edit .env with your IB LIVE account creds:     │"
-    echo "  │    IBEAM_ACCOUNT=YOUR_USERNAME                   │"
-    echo "  │    IBEAM_PASSWORD=YOUR_PASSWORD                   │"
-    echo "  │                                                  │"
-    echo "  │  Then re-run this script.                       │"
-    echo "  └─────────────────────────────────────────────────┘"
+# Step 1: Prompt for credentials (not stored on disk)
+read -rp "  IB Username: " IBEAM_ACCOUNT
+read -rsp "  IB Password: " IBEAM_PASSWORD
+echo ""
+
+if [[ -z "$IBEAM_ACCOUNT" ]] || [[ -z "$IBEAM_PASSWORD" ]]; then
+    echo "  [ERROR] Username and password are required."
     exit 1
 fi
 
-# Verify credentials are filled in
-source .env
-if [[ "$IBEAM_ACCOUNT" == "YOUR_PAPER_USERNAME" ]] || [[ -z "$IBEAM_ACCOUNT" ]]; then
-    echo ""
-    echo "  [ERROR] .env still has placeholder credentials."
-    echo "          Edit .env with your account details."
-    exit 1
-fi
+export IBEAM_ACCOUNT
+export IBEAM_PASSWORD
 
 echo ""
 echo "  Account: $IBEAM_ACCOUNT"
 echo "  Mode:    LIVE (READ-ONLY — trading blocked by proxy)"
 echo ""
 
-# Step 2: Pull images
+# Step 2: Stop any previous containers
+docker compose down 2>/dev/null || true
+
+# Step 3: Pull images
 echo "  Pulling Docker images..."
 docker pull voyz/ibeam:latest
 docker pull nginx:alpine
 
-# Step 3: Start containers
+# Step 4: Start containers (credentials passed via environment)
 echo ""
 echo "  Starting IBeam + read-only proxy..."
 docker compose up -d
@@ -64,7 +55,7 @@ echo "  Waiting for authentication (this takes ~60-90 seconds)..."
 echo "  NOTE: If you have 2FA enabled, approve the login on your IBKR app"
 echo ""
 
-# Step 4: Wait for IBeam auth first (check directly against IBeam via docker exec)
+# Step 5: Wait for auth
 for i in $(seq 1 18); do
     sleep 5
     printf "  [%2d/90s] Checking..." "$((i * 5))"
@@ -128,7 +119,7 @@ echo "    docker compose logs -f ibeam"
 echo "    python check_ib_connectivity.py --status"
 echo ""
 echo "  Common issues:"
-echo "    - Wrong credentials in .env"
+echo "    - Wrong credentials"
 echo "    - 2FA pending on your IBKR mobile app"
 echo "    - Account locked or requires security reset"
 echo ""
